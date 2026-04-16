@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trackify | Premium Fleet Management</title>
+    
+    <!-- Design Foundation -->
+    <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    
+    <!-- Charting Foundation -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Map Foundation (Leaflet) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation (Hyper-Fidelity V2) -->
+        <aside id="sidebar">
+            <div class="logo-container">
+                <div class="logo-icon-box">
+                    <span class="material-icons">local_shipping</span>
+                </div>
+                <div class="logo-text-group">
+                    <span class="logo-text">Trackify</span>
+                    <span class="logo-subtitle">Fleet Intelligence</span>
+                </div>
+            </div>
+            
+            <nav id="nav-links">
+                <a href="#" class="nav-link active" data-view="dashboard">
+                    <span class="material-icons">grid_view</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-link" data-view="live-tracking">
+                    <span class="material-icons">explore</span>
+                    <span>Live Tracking</span>
+                </a>
+                <a href="#" class="nav-link" data-view="fleet">
+                    <span class="material-icons">local_shipping</span>
+                    <span>Vehicles</span>
+                </a>
+                <a href="#" class="nav-link" data-view="drivers">
+                    <span class="material-icons">people_alt</span>
+                    <span>Drivers</span>
+                </a>
+                <a href="#" class="nav-link" data-view="orders">
+                    <span class="material-icons">shopping_cart</span>
+                    <span>Orders</span>
+                </a>
+                <a href="#" class="nav-link" data-view="trips">
+                    <span class="material-icons">route</span>
+                    <span>Trips</span>
+                </a>
+                <a href="#" class="nav-link" data-view="dispatch">
+                    <span class="material-icons">event_note</span>
+                    <span>Dispatch Board</span>
+                </a>
+                <a href="#" class="nav-link" data-view="reports">
+                    <span class="material-icons">bar_chart</span>
+                    <span>Reports</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer" style="padding: 16px; margin-top: auto;">
+                <button class="quick-dispatch-btn" style="width: 100%; border-radius: 12px; height: 52px; background: var(--primary); color: white; border: none; font-weight: 700; font-size: 14px; cursor: pointer; box-shadow: 0 4px 12px rgba(36, 99, 235, 0.3);">
+                    Quick Dispatch
+                </button>
+                
+                <nav style="margin-top: 24px;">
+                    <a href="#" class="nav-link" data-view="settings">
+                        <span class="material-icons">settings</span>
+                        <span>Settings</span>
+                    </a>
+                    <a href="#" class="nav-link" data-view="support">
+                        <span class="material-icons">help_outline</span>
+                        <span>Support</span>
+                    </a>
+                </nav>
+            </div>
+        </aside>
+
+        <!-- Main Workspace -->
+        <main id="main-content" style="flex: 1; display: flex; flex-direction: column;">
+            <header>
+                <div class="header-left" style="width: 140px;">
+                    <!-- Brand Placeholder or Sidebar Toggle -->
+                </div>
+                
+                <div class="header-center">
+                    <div class="search-pill">
+                        <span class="material-icons" style="font-size: 20px; color: #94a3b8;">search</span>
+                        <input type="text" placeholder="Search fleet, drivers, or orders..." style="border: none; background: transparent; outline: none; width: 100%; font-size: 14px; font-weight: 500;">
+                    </div>
+                    
+                    <ul class="nav-tabs">
+                        <li class="tab-item active">Workspaces</li>
+                        <li class="tab-item">Analytics</li>
+                    </ul>
+                </div>
+                
+                <div class="header-right" style="display: flex; gap: 24px; align-items: center;">
+                    <span class="material-icons" style="color: #64748b; cursor: pointer;">notifications_none</span>
+                    <span class="material-icons" style="color: #64748b; cursor: pointer;">apps</span>
+                    
+                    <div class="user-profile" style="display: flex; align-items: center; gap: 12px;">
+                        <div style="text-align: right;">
+                            <p style="font-size: 14px; font-weight: 700; color: #0f172a;">Alex Thompson</p>
+                            <p style="font-size: 11px; color: #94a3b8; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Fleet Director</p>
+                        </div>
+                        <img src="https://i.pravatar.cc/150?u=alex" style="width: 44px; height: 44px; border-radius: 50%; border: 2px solid #e2e8f0; object-fit: cover;">
+                    </div>
+                </div>
+            </header>
+
+            <!-- Dynamic Viewport -->
+            <div id="viewport" class="view-container fade-in">
+                <!-- Content will be injected by app.js -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fab">
+        <span class="material-icons" style="font-size: 32px;">add</span>
+    </button>
+
+    <script src="app.js"></script>
+</body>
+</html>
