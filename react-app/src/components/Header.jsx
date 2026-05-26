@@ -65,8 +65,8 @@ export default function Header({ onLogout, onMenuClick  }) {
               {user?.name || 'Loading...'}
             </p>
 
-            <p style={{ fontSize: 11, color: '#94a3b8' }}>
-              {user?.role || ''}
+            <p style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', fontWeight: 700 }}>
+              {(user?.role || '').toLowerCase() === 'admin' ? 'Admin' : 'Customer'}
             </p>
 
             {/* Optional location */}
@@ -76,8 +76,9 @@ export default function Header({ onLogout, onMenuClick  }) {
           </div>
       <img
             src={
-              user?.userProfile ||
-              'https://i.pravatar.cc/150'
+              user?.userProfile 
+                ? (user.userProfile.startsWith('http') ? user.userProfile : `${BASE_URL}/${user.userProfile}`) 
+                : 'http://139.59.1.109:5000/uploads/1775477571309.png'
             }
             alt={user?.name}
             style={{

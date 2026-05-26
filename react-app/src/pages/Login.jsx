@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 
 import { BASE_URL } from '../utils/network';
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, logoUrl }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -45,11 +45,17 @@ export default function Login({ onLogin }) {
     <div className="login-container">
       <div className="login-visual-pane">
         <div className="login-visual-content">
-          <div className="logo-icon-box" style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 32 }}>
-            <span className="material-icons" style={{ fontSize: 32 }}>
-              route
-            </span>
-          </div>
+          {logoUrl ? (
+            <div style={{ height: '64px', marginBottom: '32px', display: 'flex', alignItems: 'center' }}>
+              <img src={logoUrl} alt="Logo" style={{ maxHeight: '64px', maxWidth: '240px', objectFit: 'contain' }} />
+            </div>
+          ) : (
+            <div className="logo-icon-box" style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary)', overflow: 'hidden' }}>
+              <span className="material-icons" style={{ fontSize: 32, color: 'white' }}>
+                route
+              </span>
+            </div>
+          )}
           <h1 className="login-headline">
             The next generation of <br />
             <span style={{ color: '#60a5fa' }}>fleet intelligence.</span>

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polyline, Polygon, Marker, Popup, Tooltip, Circle, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -12,10 +12,59 @@ const currentIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
+const routePointIcon = L.divIcon({
+  className: 'route-point-div-icon',
+  html: '<div style="width: 10px; height: 10px; background: #3b82f6; border: 2px solid white; border-radius: 50%; box-shadow: 0 0 6px rgba(59,130,246,0.8); cursor: pointer;"></div>',
+  iconSize: [10, 10],
+  iconAnchor: [5, 5],
+});
+
+const otherVehicleIcon = L.divIcon({
+  className: 'custom-div-icon-other',
+  html: '<div style="width: 12px; height: 12px; background: white; border: 3px solid #64748b; border-radius: 50%; box-shadow: 0 0 6px rgba(100,116,139,0.4);"></div>',
+  iconSize: [12, 12],
+  iconAnchor: [6, 6],
+});
+
 // Component to dynamically re-center map when coordinates change
-function ChangeView({ center, zoom }) {
+function ChangeView({ center, zoom, deviceImei, dateFilter }) {
   const map = useMap();
-  map.setView(center, zoom);
+  const prevKeyRef = React.useRef("");
+  const hasCenteredRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!center) return;
+    
+    const isDefault = center[0] === 22.7484804921113 && center[1] === 75.8946311624446;
+    
+    // Reset centering flag when device or date filter changes
+    const currentKey = `${deviceImei || ''}-${dateFilter || ''}`;
+    if (currentKey !== prevKeyRef.current) {
+      prevKeyRef.current = currentKey;
+      hasCenteredRef.current = false;
+    }
+    
+    // Center map if it hasn't centered yet for this device/filter, especially once real coordinates are loaded
+    if (!hasCenteredRef.current) {
+      map.setView(center, zoom || 18);
+      if (!isDefault) {
+        hasCenteredRef.current = true;
+      }
+    }
+  }, [center, zoom, deviceImei, dateFilter, map]);
+
+  return null;
+}
+
+// Component to handle map clicks during geofence editing
+function MapEvents({ onClick }) {
+  useMapEvents({
+    click(e) {
+      if (onClick) {
+        onClick(e.latlng);
+      }
+    },
+  });
   return null;
 }
 
@@ -29,11 +78,40 @@ export default function LiveTracking({ user }) {
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [playbackSpeed, setPlaybackSpeed] = React.useState(1);
   const [dateFilter, setDateFilter] = React.useState('today');
+  const [geofences, setGeofences] = React.useState([]);
+  const [geoSaving, setGeoSaving] = React.useState(false);
+  const [geoError, setGeoError] = React.useState('');
+  const [geoSuccess, setGeoSuccess] = React.useState('');
+  const [mapCenter, setMapCenter] = React.useState(null);
 
   const activeData = historyData.slice(0, playbackIndex + 1);
-  const routeCoords = activeData.map(pt => [parseFloat(pt.lt), parseFloat(pt.lg)]);
-  const latestPoint = activeData.length > 0 ? activeData[activeData.length - 1] : null;
-  const currentPos = latestPoint && latestPoint.lt && latestPoint.lg ? [parseFloat(latestPoint.lt), parseFloat(latestPoint.lg)] : [22.7484804921113, 75.8946311624446];
+  const routeCoords = activeData
+    .map(pt => {
+      const lat = parseFloat(pt.lt);
+      const lg = parseFloat(pt.lg);
+      return (isNaN(lat) || isNaN(lg)) ? null : [lat, lg];
+    })
+    .filter(coord => coord !== null);
+
+  const latestPoint = activeData.length > 0 
+    ? (playbackIndex === 0 && historyData.length > 1 && !isPlaying 
+        ? historyData[historyData.length - 1] 
+        : activeData[activeData.length - 1])
+    : null;
+
+  const currentPos = (() => {
+    if (latestPoint && latestPoint.lt && latestPoint.lg) {
+      const lat = parseFloat(latestPoint.lt);
+      const lg = parseFloat(latestPoint.lg);
+      if (!isNaN(lat) && !isNaN(lg)) return [lat, lg];
+    }
+    if (device?.currentLocation?.lat && device?.currentLocation?.lng) {
+      const lat = parseFloat(device.currentLocation.lat);
+      const lg = parseFloat(device.currentLocation.lng);
+      if (!isNaN(lat) && !isNaN(lg)) return [lat, lg];
+    }
+    return [22.7484804921113, 75.8946311624446];
+  })();
   const currentSpeed = latestPoint?.sp || 0;
   const currentTimestamp = latestPoint?.createdAt ? new Date(latestPoint.createdAt).toLocaleString() : '--';
 
@@ -43,17 +121,69 @@ export default function LiveTracking({ user }) {
 
     const fetchVehicles = async () => {
       try {
-        const response = await fetch(`${BASE_URL}/api/vehicle/get-vehicles?userId=${userId}`, {
+        const isUserAdmin = user && (user.role || '').toLowerCase() === 'admin';
+        
+        // Fetch full vehicle records first to get specifications (maker, model, fuel, type, registration)
+        let allVehicles = [];
+        try {
+          const vUrl = isUserAdmin
+            ? `${BASE_URL}/api/vehicle/get-vehicles-list`
+            : `${BASE_URL}/api/vehicle/get-vehicles?userId=${userId}`;
+          const vRes = await fetch(vUrl);
+          if (vRes.ok) {
+            const vData = await vRes.json();
+            allVehicles = vData.vehicles || vData.data || (Array.isArray(vData) ? vData : []);
+          }
+        } catch (e) {
+          console.error("Failed to load vehicle specs:", e);
+        }
+
+        const targetUrl = isUserAdmin
+          ? `${BASE_URL}/api/device/device-list`
+          : `${BASE_URL}/api/vehicle/get-vehicles?userId=${userId}`;
+
+        const response = await fetch(targetUrl, {
           method: 'GET',
           headers: { 'accept': 'application/json' },
         });
 
         if (response.ok) {
           const data = await response.json();
-          if (data && data.vehicles && data.vehicles.length > 0) {
-            setVehicles(data.vehicles);
-            const firstValid = data.vehicles.find(v => v.imei) || data.vehicles[0];
-            setDevice(firstValid);
+          if (isUserAdmin) {
+            if (data && data.data && data.data.length > 0) {
+              const mapped = data.data.map(d => {
+                const match = allVehicles.find(v => String(v.imei) === String(d.imei));
+                return {
+                  _id: d.id || d.imei,
+                  imei: d.imei,
+                  vehicleNumber: match?.vehicleNumber || d.imei,
+                  vehicleMaker: match?.vehicleMaker || d.user_name || 'Fleet',
+                  vehicleModel: match?.vehicleModel || 'Device',
+                  vehicleType: match?.vehicleType || 'vehicle',
+                  fuelType: match?.fuelType || 'N/A',
+                  createdAt: match?.createdAt || d.createdAt || null,
+                  currentLocation: null
+                };
+              });
+              setVehicles(mapped);
+              const preferred = mapped.find(v => v.imei === '860710085959719');
+              if (preferred) {
+                setDevice(preferred);
+              } else {
+                setDevice(mapped[0]);
+              }
+            }
+          } else {
+            if (data && data.vehicles && data.vehicles.length > 0) {
+              setVehicles(data.vehicles);
+              const preferred = data.vehicles.find(v => v.imei === '860710085959719');
+              if (preferred) {
+                setDevice(preferred);
+              } else {
+                const firstValid = data.vehicles.find(v => v.imei) || data.vehicles[0];
+                setDevice(firstValid);
+              }
+            }
           }
         }
       } catch (error) {
@@ -63,6 +193,37 @@ export default function LiveTracking({ user }) {
 
     fetchVehicles();
   }, [user]);
+
+  const fetchGeofences = async (imei) => {
+    if (!imei) return;
+    try {
+      const response = await fetch(`${BASE_URL}/api/geoFance/geofenceData/${imei}`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result && result.status && result.result) {
+          setGeofences(result.result);
+        } else {
+          setGeofences([]);
+        }
+      } else {
+        setGeofences([]);
+      }
+    } catch (err) {
+      console.error("Error fetching geofences:", err);
+      setGeofences([]);
+    }
+  };
+
+  useEffect(() => {
+    if (device && device.imei) {
+      fetchGeofences(device.imei);
+    } else {
+      setGeofences([]);
+    }
+    setGeoSuccess('');
+    setGeoError('');
+    setMapCenter(null);
+  }, [device]);
 
   // Fetch coordinates based on the selected device's IMEI and Date filter
   useEffect(() => {
@@ -122,8 +283,8 @@ export default function LiveTracking({ user }) {
             setHistoryData(sortedData);
             // If not currently playing, jump to the latest point
             setPlaybackIndex(prev => {
-                if (prev === 0 || prev >= sortedData.length - 2) return sortedData.length - 1;
-                return prev;
+              if (prev === 0 || prev >= sortedData.length - 2) return sortedData.length - 1;
+              return prev;
             });
           } else {
             setHistoryData([]);
@@ -140,6 +301,7 @@ export default function LiveTracking({ user }) {
       setHistoryData([]);
       setPlaybackIndex(0);
       setIsPlaying(false);
+      setMapCenter(null);
       fetchLiveCoords();
       // Poll coordinates every 10 seconds to keep live tracking updated
       const intervalId = setInterval(fetchLiveCoords, 10000);
@@ -166,8 +328,16 @@ export default function LiveTracking({ user }) {
     return () => clearInterval(interval);
   }, [isPlaying, historyData.length, playbackSpeed]);
 
-  const vehicleName = device ? `${device.vehicleMaker} ${device.vehicleModel}` : "Freightliner Cascadia";
-  const vehicleDetails = device ? `Number: ${device.vehicleNumber} • IMEI: ${device.imei || 'Not Assigned'}` : "VIN: 1FUJAGAK9HL • Fleet #402";
+  const vehicleName = device
+    ? (device.device_name || (device.vehicleMaker ? `${device.vehicleMaker} ${device.vehicleModel}` : `Device ${device.imei}`))
+    : "Freightliner Cascadia";
+
+  const vehicleDetails = device
+    ? (device.vehicleNumber
+      ? `Number: ${device.vehicleNumber} • IMEI: ${device.imei || 'Not Assigned'}`
+      : `IMEI: ${device.imei} • Last Seen: ${device.lastSeen ? new Date(device.lastSeen).toLocaleString() : 'N/A'}`
+    )
+    : "VIN: 1FUJAGAK9HL • Fleet #402";
 
   return (
     <div className="tracking-wrapper">
@@ -175,7 +345,8 @@ export default function LiveTracking({ user }) {
         <MapContainer
           center={[22.7484804921113, 75.8946311624446]}
           zoom={10}
-          zoomControl={false}
+          zoomControl={true}
+          scrollWheelZoom={true}
           attributionControl={false}
           style={{ width: '100%', height: '100%', background: '#0f172a' }}
         >
@@ -183,7 +354,7 @@ export default function LiveTracking({ user }) {
             url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
             maxZoom={19}
           />
-          <ChangeView center={currentPos} zoom={18} />
+          <ChangeView center={mapCenter || currentPos} zoom={18} deviceImei={device?.imei} dateFilter={dateFilter} />
           {/* Render polylines and markers only if coordinates exist */}
           {routeCoords.length > 0 && (
             <>
@@ -193,15 +364,152 @@ export default function LiveTracking({ user }) {
               <Polyline positions={routeCoords} pathOptions={{ color: '#2463eb', weight: 4, opacity: 1 }} />
             </>
           )}
-          {/* Current location */}
-          <Marker position={currentPos} icon={currentIcon} />
+          {/* Other vehicles current locations */}
+          {vehicles && vehicles.map(v => {
+            if (v._id !== device?._id && v.currentLocation && v.currentLocation.lat && v.currentLocation.lng) {
+              const lat = parseFloat(v.currentLocation.lat);
+              const lng = parseFloat(v.currentLocation.lng);
+              if (isNaN(lat) || isNaN(lng)) return null;
+              return (
+                <Marker
+                  key={v._id}
+                  position={[lat, lng]}
+                  icon={otherVehicleIcon}
+                >
+                  <Tooltip direction="top" offset={[0, -10]} opacity={0.8}>
+                    <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{v.imei || v.vehicleNumber || v.device_name}</span>
+                  </Tooltip>
+                </Marker>
+              );
+            }
+            return null;
+          })}
+
+          {/* Current selected location */}
+          <Marker position={currentPos} icon={currentIcon}>
+            <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent>
+              <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{device?.imei || 'Selected'}</span>
+            </Tooltip>
+            <Popup>
+              <div style={{ padding: '6px', fontSize: '12px', lineHeight: '1.6' }}>
+                <strong style={{ display: 'block', fontSize: '13px', marginBottom: '8px', color: '#3b82f6', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+                  {device?.device_name || (device?.vehicleMaker ? `${device.vehicleMaker} ${device.vehicleModel}` : 'Vehicle / Device')}
+                </strong>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div><strong>IMEI:</strong> <span style={{ fontFamily: 'monospace' }}>{device?.imei || 'N/A'}</span></div>
+                  <div><strong>Latitude:</strong> <span>{currentPos[0]}</span></div>
+                  <div><strong>Longitude:</strong> <span>{currentPos[1]}</span></div>
+                  <div><strong>Created At:</strong> <span style={{ fontFamily: 'monospace' }}>{latestPoint?.createdAt || 'N/A'}</span></div>
+                  {latestPoint?.sp !== undefined && (
+                    <div><strong>Speed:</strong> <span>{latestPoint.sp} MPH</span></div>
+                  )}
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+
+          {/* Active Geofences from database */}
+          {geofences && geofences.map((geo, index) => {
+            const coords = geo.geofencingCoordinates || [];
+            if (coords.length === 1) {
+              const lat = parseFloat(coords[0].lat || coords[0].latitude);
+              const lng = parseFloat(coords[0].lng || coords[0].longitude);
+              if (isNaN(lat) || isNaN(lng)) return null;
+              const radius = parseFloat(geo.radius) || 200; // default radius: 200m
+              return (
+                <React.Fragment key={geo._id || index}>
+                  <Circle
+                    center={[lat, lng]}
+                    radius={radius}
+                    pathOptions={{
+                      color: '#10b981',
+                      fillColor: '#10b981',
+                      fillOpacity: 0.15,
+                      weight: 2,
+                      dashArray: '5, 10'
+                    }}
+                  />
+                  <Marker
+                    position={[lat, lng]}
+                    icon={L.divIcon({
+                      className: 'custom-div-icon',
+                      html: '<div style="width: 12px; height: 12px; background: white; border: 3px solid #10b981; border-radius: 50%; box-shadow: 0 0 8px rgba(16,185,129,0.6);"></div>',
+                      iconSize: [12, 12],
+                      iconAnchor: [6, 6]
+                    })}
+                  >
+                    <Tooltip direction="top" offset={[0, -6]} permanent>
+                      <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{geo.geofencName || 'Geofence'}</span>
+                    </Tooltip>
+                    <Popup>
+                      <div style={{ padding: '6px', fontSize: '12px', lineHeight: '1.6' }}>
+                        <strong style={{ display: 'block', fontSize: '13px', marginBottom: '8px', color: '#10b981', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+                          Geofence Guard
+                        </strong>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div><strong>Name:</strong> <span>{geo.geofencName || 'Unnamed Geofence'}</span></div>
+                          <div><strong>Radius:</strong> <span>{radius} meters</span></div>
+                          <div><strong>Latitude:</strong> <span>{lat}</span></div>
+                          <div><strong>Longitude:</strong> <span>{lng}</span></div>
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                </React.Fragment>
+              );
+            } else if (coords.length > 1) {
+              // Polygon geofence
+              const positions = coords.map(c => [parseFloat(c.lat || c.latitude), parseFloat(c.lng || c.longitude)]);
+              const center = positions[0];
+              return (
+                <React.Fragment key={geo._id || index}>
+                  <Polygon
+                    positions={positions}
+                    pathOptions={{
+                      color: '#10b981',
+                      fillColor: '#10b981',
+                      fillOpacity: 0.15,
+                      weight: 2,
+                      dashArray: '5, 10'
+                    }}
+                  />
+                  <Marker
+                    position={center}
+                    icon={L.divIcon({
+                      className: 'custom-div-icon',
+                      html: '<div style="width: 12px; height: 12px; background: white; border: 3px solid #10b981; border-radius: 50%; box-shadow: 0 0 8px rgba(16,185,129,0.6);"></div>',
+                      iconSize: [12, 12],
+                      iconAnchor: [6, 6]
+                    })}
+                  >
+                    <Tooltip direction="top" offset={[0, -6]} permanent>
+                      <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{geo.geofencName || 'Geofence'}</span>
+                    </Tooltip>
+                    <Popup>
+                      <div style={{ padding: '6px', fontSize: '12px', lineHeight: '1.6' }}>
+                        <strong style={{ display: 'block', fontSize: '13px', marginBottom: '8px', color: '#10b981', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '4px' }}>
+                          Geofence Guard
+                        </strong>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <div><strong>Name:</strong> <span>{geo.geofencName || 'Unnamed Geofence'}</span></div>
+                          <div><strong>Type:</strong> <span>Polygon Geofence</span></div>
+                          <div><strong>Vertices:</strong> <span>{coords.length} points</span></div>
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                </React.Fragment>
+              );
+            }
+            return null;
+          })}
         </MapContainer>
 
         {/* Playback Control */}
         <div className="playback-control">
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div 
-              className="icon-box blue" 
+            <div
+              className="icon-box blue"
               style={{ width: 32, height: 32, cursor: 'pointer' }}
               onClick={() => {
                 if (playbackIndex >= historyData.length - 1) {
@@ -221,21 +529,21 @@ export default function LiveTracking({ user }) {
           </div>
           <div style={{ flex: 1, height: 4, background: '#e2e8f0', borderRadius: 2, position: 'relative', width: 200, display: 'flex', alignItems: 'center' }}>
             <div style={{ position: 'absolute', left: 0, width: `${historyData.length > 0 ? (playbackIndex / (historyData.length - 1)) * 100 : 0}%`, height: '100%', background: 'var(--primary)', borderRadius: 2, pointerEvents: 'none' }} />
-            <div 
-              style={{ 
-                position: 'absolute', 
-                left: `${historyData.length > 0 ? (playbackIndex / (historyData.length - 1)) * 100 : 0}%`, 
+            <div
+              style={{
+                position: 'absolute',
+                left: `${historyData.length > 0 ? (playbackIndex / (historyData.length - 1)) * 100 : 0}%`,
                 width: 12, height: 12, background: 'white', border: '2px solid var(--primary)', borderRadius: '50%',
                 transform: 'translateX(-50%)', pointerEvents: 'none'
-              }} 
+              }}
             />
-            <input 
-              type="range" 
-              min="0" 
-              max={historyData.length > 0 ? historyData.length - 1 : 0} 
-              value={playbackIndex} 
+            <input
+              type="range"
+              min="0"
+              max={historyData.length > 0 ? historyData.length - 1 : 0}
+              value={playbackIndex}
               onChange={(e) => setPlaybackIndex(Number(e.target.value))}
-              style={{ 
+              style={{
                 position: 'absolute',
                 width: '100%',
                 height: '100%',
@@ -243,21 +551,21 @@ export default function LiveTracking({ user }) {
                 cursor: 'pointer',
                 margin: 0,
                 zIndex: 10
-              }} 
+              }}
             />
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', background: 'var(--bg-main)', padding: '4px 8px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-            <span 
-              className="material-icons" 
-              style={{ fontSize: 16, color: playbackSpeed > 1 ? 'var(--primary)' : 'var(--text-muted)', cursor: playbackSpeed > 1 ? 'pointer' : 'default' }} 
+            <span
+              className="material-icons"
+              style={{ fontSize: 16, color: playbackSpeed > 1 ? 'var(--primary)' : 'var(--text-muted)', cursor: playbackSpeed > 1 ? 'pointer' : 'default' }}
               onClick={() => setPlaybackSpeed(s => Math.max(1, s - 1))}
             >
               remove
             </span>
             <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-main)', width: '24px', textAlign: 'center' }}>{playbackSpeed}x</span>
-            <span 
-              className="material-icons" 
-              style={{ fontSize: 16, color: playbackSpeed < 10 ? 'var(--primary)' : 'var(--text-muted)', cursor: playbackSpeed < 10 ? 'pointer' : 'default' }} 
+            <span
+              className="material-icons"
+              style={{ fontSize: 16, color: playbackSpeed < 10 ? 'var(--primary)' : 'var(--text-muted)', cursor: playbackSpeed < 10 ? 'pointer' : 'default' }}
               onClick={() => setPlaybackSpeed(s => Math.min(10, s + 1))}
             >
               add
@@ -301,11 +609,16 @@ export default function LiveTracking({ user }) {
                   minWidth: '220px'
                 }}
               >
-                {vehicles.map(v => (
-                  <option key={v._id} value={v._id}>
-                    {v.vehicleNumber} {v.imei ? `(IMEI: ${v.imei})` : '(No IMEI)'}
-                  </option>
-                ))}
+                {vehicles.map(v => {
+                  const label = v.vehicleMaker && v.vehicleMaker !== 'Fleet'
+                    ? `${v.vehicleMaker} - ${v.vehicleNumber}`
+                    : v.vehicleNumber;
+                  return (
+                    <option key={v._id} value={v._id}>
+                      {label} {v.imei && v.imei !== v.vehicleNumber ? `(IMEI: ${v.imei})` : ''}
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -367,6 +680,105 @@ export default function LiveTracking({ user }) {
             <span style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 600 }}>LIMIT: 70 MPH</span>
           </div>
           <h3 style={{ fontSize: 28, fontWeight: 800, color: 'var(--primary)' }}>{currentSpeed}<span style={{ fontSize: 14, marginLeft: 4 }}>MPH</span></h3>
+        </div>
+
+        {/* GeoFence Guard */}
+        <div className="pane-section" style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: '16px', padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span className="material-icons" style={{ fontSize: 18, color: geofences.length > 0 ? 'var(--success)' : 'var(--text-muted)' }}>
+                {geofences.length > 0 ? 'security' : 'shield'}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-main)', textTransform: 'uppercase' }}>GeoFence Guard</span>
+            </div>
+            {geofences.length > 0 ? (
+              <span className="tag" style={{ background: 'var(--success-light)', color: 'var(--success)', fontSize: '10px', padding: '2px 8px' }}>{geofences.length} ACTIVE</span>
+            ) : (
+              <span className="tag" style={{ background: 'var(--border)', color: 'var(--text-muted)', fontSize: '10px', padding: '2px 8px' }}>INACTIVE</span>
+            )}
+          </div>
+
+          {/* Messages */}
+          {geoSuccess && <div style={{ fontSize: '11px', color: 'var(--success)', background: 'var(--success-light)', padding: '6px 10px', borderRadius: '6px', marginBottom: 10 }}>{geoSuccess}</div>}
+          {geoError && <div style={{ fontSize: '11px', color: 'var(--error)', background: '#fee2e2', padding: '6px 10px', borderRadius: '6px', marginBottom: 10 }}>{geoError}</div>}
+
+          <div>
+            {geofences.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {geofences.map((geo, idx) => {
+                  const coords = geo.geofencingCoordinates || [];
+                  const coordStr = coords[0]
+                    ? `${parseFloat(coords[0].lat || coords[0].latitude).toFixed(4)}, ${parseFloat(coords[0].lng || coords[0].longitude).toFixed(4)}`
+                    : 'N/A';
+                  return (
+                    <div
+                      key={geo._id || idx}
+                      onClick={() => {
+                        if (coords[0]) {
+                          const lat = parseFloat(coords[0].lat || coords[0].latitude);
+                          const lng = parseFloat(coords[0].lng || coords[0].longitude);
+                          if (!isNaN(lat) && !isNaN(lng)) {
+                            setMapCenter([lat, lng]);
+                          }
+                        }
+                      }}
+                      style={{
+                        background: 'white',
+                        padding: '10px 12px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border)',
+                        fontSize: '11px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 700, color: 'var(--text-main)', marginBottom: 2 }}>{geo.geofencName || 'Geofence'}</div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>Coords: {coordStr}</div>
+                      </div>
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation(); // Avoid triggering map centering on click
+                          if (!geo._id) return;
+                          setGeoSaving(true);
+                          setGeoError('');
+                          setGeoSuccess('');
+                          try {
+                            const response = await fetch(`${BASE_URL}/api/geoFance/geofenceById/${geo._id}`, {
+                              method: 'DELETE'
+                            });
+                            if (response.ok) {
+                              setGeoSuccess('Geofence removed successfully!');
+                              fetchGeofences(device.imei);
+                              setMapCenter(null);
+                            } else {
+                              setGeoError('Failed to remove geofence.');
+                            }
+                          } catch (err) {
+                            setGeoError('Error deleting geofence.');
+                          } finally {
+                            setGeoSaving(false);
+                          }
+                        }}
+                        disabled={geoSaving}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        title="Remove Geofence"
+                      >
+                        <span className="material-icons" style={{ fontSize: 16 }}>delete</span>
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: 0 }}>No geofences are active for this device.</p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Vehicle / Driver Configuration */}

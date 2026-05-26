@@ -31,31 +31,32 @@ function Heatmap() {
 import { BASE_URL } from '../utils/network';
 
 export default function Dashboard({ user }) {
-  const [deviceCount, setDeviceCount] = React.useState(0);
-  const [isLoadingDevices, setIsLoadingDevices] = React.useState(true);
+  const [dashboardData, setDashboardData] = React.useState({
+    cards: [],
+    summary: {
+      totalDevices: 0,
+      totalCustomers: 0,
+      totalActive: 0,
+      totalDeactive: 0
+    }
+  });
+  const [isLoading, setIsLoading] = React.useState(true);
 
   useEffect(() => {
-    // Attempt to resolve userId dynamically from user object
-    const userId = user?.id || user?._id || localStorage.getItem('userId');
-
-    if (userId) {
-      setIsLoadingDevices(true);
-      fetch(`${BASE_URL}/devices/${userId}`, {
-        method: 'GET',
-        headers: { 'accept': 'application/json' }
+    setIsLoading(true);
+    fetch(`${BASE_URL}/api/count/dashboard`, {
+      method: 'GET',
+      headers: { 'accept': 'application/json' }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.data) {
+          setDashboardData(data.data);
+        }
       })
-        .then(res => res.json())
-        .then(data => {
-          if (data.status) {
-            setDeviceCount(data.count || data.devices?.length || 0);
-          }
-        })
-        .catch(err => console.error("Error fetching devices config:", err))
-        .finally(() => setIsLoadingDevices(false));
-    } else {
-      setIsLoadingDevices(false);
-    }
-  }, [user]);
+      .catch(err => console.error("Error fetching dashboard data:", err))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const chartData = {
     labels: ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN'],
@@ -93,6 +94,23 @@ export default function Dashboard({ user }) {
     },
   };
 
+  const cardsToRender = isLoading
+    ? [
+        { key: 'total_devices', title: 'Total Devices', value: '...', growthText: '+12.4%', icon: 'device' },
+        { key: 'total_customers', title: 'Total Customers', value: '...', growthText: '+5.8%', icon: 'customer' },
+        { key: 'total_active', title: 'Total Active', value: '...', badgeText: 'Active', icon: 'active_device' },
+        { key: 'total_deactive', title: 'Total Deactive', value: '...', growthText: '-2.1%', icon: 'deactive_device' }
+      ]
+    : (dashboardData.cards && dashboardData.cards.length > 0
+        ? dashboardData.cards
+        : [
+            { key: 'total_devices', title: 'Total Devices', value: dashboardData.summary?.totalDevices || 0, growthText: '+12.4%', icon: 'device' },
+            { key: 'total_customers', title: 'Total Customers', value: dashboardData.summary?.totalCustomers || 0, growthText: '+5.8%', icon: 'customer' },
+            { key: 'total_active', title: 'Total Active', value: dashboardData.summary?.totalActive || 0, badgeText: 'Active', icon: 'active_device' },
+            { key: 'total_deactive', title: 'Total Deactive', value: dashboardData.summary?.totalDeactive || 0, growthText: '-2.1%', icon: 'deactive_device' }
+          ]
+      );
+
   return (
     <div className="fade-in">
       <div style={{ marginBottom: 32 }}>
@@ -106,10 +124,50 @@ export default function Dashboard({ user }) {
 
       {/* Metric Cards */}
       <div className="metric-grid">
-        <MetricCard label="Total Devices" value={isLoadingDevices ? "..." : deviceCount} trend="+12.4%" colorClass="blue" icon="analytics" />
-        <MetricCard label="Total Customers" value="1,890" trend="+5.8%" colorClass="orange" icon="eco" />
-        <MetricCard label="Total Active" value="1,204" trend="Active" colorClass="green" icon="local_shipping" />
-        <MetricCard label="Total Deactive" value="246" trend="-2.1%" colorClass="red" icon="schedule" />
+        {cardsToRender.map((card) => {
+          let colorClass = 'blue';
+          let iconName = 'analytics';
+
+          if (card.key === 'total_devices') {
+            colorClass = 'blue';
+            iconName = 'analytics';
+          } else if (card.key === 'total_customers') {
+            colorClass = 'orange';
+            iconName = 'eco';
+          } else if (card.key === 'total_active') {
+            colorClass = 'green';
+            iconName = 'local_shipping';
+          } else if (card.key === 'total_deactive') {
+            colorClass = 'red';
+            iconName = 'schedule';
+          } else {
+            // Fallback icon and styling mappings for future additions
+            if (card.icon === 'device') {
+              iconName = 'analytics';
+              colorClass = 'blue';
+            } else if (card.icon === 'customer') {
+              iconName = 'eco';
+              colorClass = 'orange';
+            } else if (card.icon === 'active_device') {
+              iconName = 'local_shipping';
+              colorClass = 'green';
+            } else if (card.icon === 'deactive_device') {
+              iconName = 'schedule';
+              colorClass = 'red';
+            }
+          }
+
+          return (
+            <MetricCard
+              key={card.key}
+              label={card.title}
+              value={card.value}
+              trend={card.growthText || card.badgeText || ''}
+              colorClass={colorClass}
+              icon={iconName}
+            />
+          );
+        })}
       </div>
 
       {/* Chart + Alerts */}

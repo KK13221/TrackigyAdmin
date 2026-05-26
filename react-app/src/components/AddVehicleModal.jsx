@@ -12,7 +12,7 @@ export default function AddVehicleModal({ isOpen, onClose, user, onVehicleAdded 
     modelId: '',
     vehicleNumber: ''
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -50,9 +50,9 @@ export default function AddVehicleModal({ isOpen, onClose, user, onVehicleAdded 
             const result = await response.json();
             if (result && result.data) {
               setMakers(result.data);
-              setFormData(prev => ({ 
-                ...prev, 
-                brandId: result.data.length > 0 ? result.data[0]._id : '' 
+              setFormData(prev => ({
+                ...prev,
+                brandId: result.data.length > 0 ? result.data[0]._id : ''
               }));
             }
           }
@@ -104,7 +104,7 @@ export default function AddVehicleModal({ isOpen, onClose, user, onVehicleAdded 
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
+
     const userId = user?._id || user?.userId || user?.user_id || '69d4edbd81a3afcb12e63140';
 
     try {
@@ -120,7 +120,7 @@ export default function AddVehicleModal({ isOpen, onClose, user, onVehicleAdded 
       if (response.ok) {
         onVehicleAdded();
         onClose();
-        setFormData({ vehicleType: '2_wheeler', fuelType: 'petrol', brandId: '', modelId: '', vehicleNumber: ''});
+        setFormData({ vehicleType: '2_wheeler', fuelType: 'petrol', brandId: '', modelId: '', vehicleNumber: '' });
       } else {
         const err = await response.json();
         setError(err.message || 'Failed to add vehicle');
@@ -139,7 +139,7 @@ export default function AddVehicleModal({ isOpen, onClose, user, onVehicleAdded 
         <h2 style={{ fontSize: 20, fontWeight: 800, marginBottom: 20 }}>Add New Vehicle</h2>
         {error && <div style={{ color: 'red', marginBottom: 16 }}>{error}</div>}
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          
+
           <div>
             <label style={labelStyle}>Vehicle Type</label>
             <select name="vehicleType" value={formData.vehicleType} onChange={handleChange} style={inputStyle}>
@@ -154,7 +154,7 @@ export default function AddVehicleModal({ isOpen, onClose, user, onVehicleAdded 
               )}
             </select>
           </div>
-          
+
           <div>
             <label style={labelStyle}>Fuel Type</label>
             <select name="fuelType" value={formData.fuelType} onChange={handleChange} style={inputStyle}>
