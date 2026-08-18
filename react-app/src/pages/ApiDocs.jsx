@@ -534,7 +534,7 @@ export default function ApiDocs() {
       {/* Header */}
       <div className="page-header" style={{ marginBottom: 16 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Trackify Swagger API JSDoc Command Center</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4 }}>Trackify Swagger API JSDoc Command Center</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             Direct interactive API client wired to your Swagger routes. Select any controller, input parameters, and run live server commands.
           </p>
@@ -672,7 +672,7 @@ export default function ApiDocs() {
                           value={val}
                           onChange={(e) => handleFieldChange(field.name, e.target.value)}
                           required={field.required}
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none' }}
                         >
                           <option value="">-- Select Active Fleet IMEI --</option>
                           {vehicles.map(v => (
@@ -695,7 +695,7 @@ export default function ApiDocs() {
                           value={val}
                           onChange={(e) => handleFieldChange(field.name, e.target.value)}
                           required={field.required}
-                          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
+                          style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none' }}
                         >
                           <option value="">-- Choose option --</option>
                           {field.options.map(opt => (
@@ -741,7 +741,7 @@ export default function ApiDocs() {
                         placeholder={field.placeholder}
                         onChange={(e) => handleFieldChange(field.name, e.target.value)}
                         required={field.required}
-                        style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
+                        style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none' }}
                       />
                     </div>
                   );
@@ -802,7 +802,7 @@ export default function ApiDocs() {
           <div 
             style={{ 
               flex: 1, 
-              background: '#0f172a', 
+              background: 'var(--text-main)', 
               borderRadius: 12, 
               padding: 16, 
               color: '#38bdf8', 
@@ -816,13 +816,13 @@ export default function ApiDocs() {
             {executing ? (
               <div style={{ margin: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
                 <div className="spinner-mini" style={{ width: 24, height: 24, border: '2px solid rgba(56,189,248,0.2)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-                <span style={{ color: '#94a3b8' }}>Awaiting Swagger Server Response...</span>
+                <span style={{ color: 'var(--text-muted)' }}>Awaiting Swagger Server Response...</span>
               </div>
             ) : responseStatus !== null ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 {/* HTTP Status block */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1e293b', paddingBottom: 10 }}>
-                  <span style={{ color: '#94a3b8' }}>HTTP STATUS STATUS:</span>
+                  <span style={{ color: 'var(--text-muted)' }}>HTTP STATUS STATUS:</span>
                   <span 
                     style={{ 
                       fontWeight: 'bold', 
@@ -836,8 +836,8 @@ export default function ApiDocs() {
                 {/* HTTP Headers block */}
                 {responseHeaders && (
                   <div>
-                    <span style={{ color: '#94a3b8', fontSize: 10, display: 'block', marginBottom: 4 }}>HEADERS:</span>
-                    <pre style={{ margin: 0, padding: 8, background: '#1e293b', borderRadius: 6, color: '#f1f5f9', fontSize: 10, overflowX: 'auto' }}>
+                    <span style={{ color: 'var(--text-muted)', fontSize: 10, display: 'block', marginBottom: 4 }}>HEADERS:</span>
+                    <pre style={{ margin: 0, padding: 8, background: 'var(--text-main)', borderRadius: 6, color: '#f1f5f9', fontSize: 10, overflowX: 'auto' }}>
                       {JSON.stringify(responseHeaders, null, 2)}
                     </pre>
                   </div>
@@ -845,14 +845,14 @@ export default function ApiDocs() {
 
                 {/* Core JSON content */}
                 <div>
-                  <span style={{ color: '#94a3b8', fontSize: 10, display: 'block', marginBottom: 4 }}>RESPONSE BODY:</span>
-                  <pre style={{ margin: 0, padding: 8, background: '#1e293b', borderRadius: 6, color: '#4ade80', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: 10, display: 'block', marginBottom: 4 }}>RESPONSE BODY:</span>
+                  <pre style={{ margin: 0, padding: 8, background: 'var(--text-main)', borderRadius: 6, color: '#4ade80', overflowX: 'auto', whiteSpace: 'pre-wrap' }}>
                     {JSON.stringify(responseData, null, 2)}
                   </pre>
                 </div>
               </div>
             ) : (
-              <div style={{ margin: 'auto', textAlign: 'center', color: '#64748b' }}>
+              <div style={{ margin: 'auto', textAlign: 'center', color: 'var(--text-muted)' }}>
                 <span className="material-icons" style={{ fontSize: 36, marginBottom: 8, color: '#334155' }}>terminal</span>
                 <p>Swagger Command Console is idle.</p>
                 <p style={{ fontSize: 10, marginTop: 4 }}>Select a controller path, bind variables, and press Execute to output raw results.</p>

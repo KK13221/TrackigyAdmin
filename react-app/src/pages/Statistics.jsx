@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../utils/network';
+import TrackifyLoader from '../components/TrackifyLoader';
 
 const StatCard = ({ icon, iconColor, iconBg, label, value, subValue, comparison, comparisonPositive }) => (
   <div className="card" style={{ borderRadius: 16, padding: '20px 22px', display: 'flex', flexDirection: 'column', gap: 16, border: '1px solid #f1f5f9' }}>
@@ -18,16 +19,16 @@ const StatCard = ({ icon, iconColor, iconBg, label, value, subValue, comparison,
       )}
     </div>
     <div>
-      <div style={{ fontSize: 24, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{value}</div>
-      {subValue && <div style={{ fontSize: 12, fontWeight: 600, color: '#64748b', marginTop: 3 }}>{subValue}</div>}
-      <div style={{ fontSize: 11, fontWeight: 700, color: '#94a3b8', marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px', lineHeight: 1.1 }}>{value}</div>
+      {subValue && <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginTop: 3 }}>{subValue}</div>}
+      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginTop: 8, textTransform: 'uppercase', letterSpacing: '0.8px' }}>{label}</div>
     </div>
   </div>
 );
 
 export default function Statistics({ user }) {
   const [vehicles, setVehicles] = useState([]);
-  const [selectedImei, setSelectedImei] = useState('860710085959719');
+  const [selectedImei, setSelectedImei] = useState('');
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -36,7 +37,7 @@ export default function Statistics({ user }) {
   // Fetch device list or user's vehicles list
   useEffect(() => {
     const savedUser = user || JSON.parse(localStorage.getItem('user') || '{}');
-    const isUserAdmin = (savedUser.role || '').toLowerCase() === 'admin';
+    const isUserAdmin = ['superadmin'].includes((savedUser.role || '').toLowerCase());
     const userId = savedUser.id || savedUser._id || localStorage.getItem('userId');
 
     const targetUrl = isUserAdmin
@@ -49,18 +50,18 @@ export default function Statistics({ user }) {
         if (isUserAdmin) {
           const list = data?.data || (Array.isArray(data) ? data : []);
           setVehicles(list);
-          const hasPreferred = list.some(v => v.imei === '860710085959719');
+          const hasPreferred = list.some(v => v.imei === '');
           if (hasPreferred) {
-            setSelectedImei('860710085959719');
+            setSelectedImei('');
           } else if (list.length > 0) {
             setSelectedImei(list[0].imei || '');
           }
         } else {
           const list = data?.vehicles || [];
           setVehicles(list);
-          const hasPreferred = list.some(v => v.imei === '860710085959719');
+          const hasPreferred = list.some(v => v.imei === '');
           if (hasPreferred) {
-            setSelectedImei('860710085959719');
+            setSelectedImei('');
           } else if (list.length > 0) {
             setSelectedImei(list[0].imei || '');
           }
@@ -113,27 +114,40 @@ export default function Statistics({ user }) {
 
   return (
     <div className="fade-in" style={{ padding: '4px 0', fontFamily: "'Inter', sans-serif" }}>
+      <style>{`
+        .stats-grid-main {
+          display: grid;
+          grid-template-columns: 260px 1fr;
+          gap: 20px;
+          align-items: stretch;
+        }
+        @media (max-width: 1024px) {
+          .stats-grid-main {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
 
       {/* ── Header ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
+      {/* <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24, flexWrap: 'wrap', gap: 16 }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>Vehicle Analytics</div>
-          <h1 style={{ fontSize: 26, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.5px', margin: 0 }}>Statistics</h1>
-          <p style={{ color: '#64748b', fontSize: 13, marginTop: 4, margin: 0 }}>Daily riding behaviour, journey, speed and fuel metrics.</p>
+          <h1 style={{ fontSize: 26, fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px', margin: 0 }}>Statistics</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4, margin: 0 }}>Daily riding behaviour, journey, speed and fuel metrics.</p>
         </div>
-      </div>
+      </div> */}
 
       {/* ── Controls Bar ── */}
       <div className="card" style={{ padding: '14px 18px', borderRadius: 14, marginBottom: 24, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', border: '1px solid #f1f5f9' }}>
 
         {/* Device Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 200px', background: '#f8fafc', borderRadius: 10, padding: '6px 12px', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: '1 1 200px', background: 'var(--bg-main)', borderRadius: 10, padding: '6px 12px', border: '1px solid #e2e8f0' }}>
           <span className="material-icons" style={{ fontSize: 18, color: 'var(--primary)' }}>sim_card</span>
           {vehicles.length > 0 ? (
             <select
               value={selectedImei}
               onChange={e => setSelectedImei(e.target.value)}
-              style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 13, fontWeight: 700, outline: 'none', color: '#1e293b' }}
+              style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 13, fontWeight: 700, outline: 'none', color: 'var(--text-main)' }}
             >
               {vehicles.map(v => {
                 const label = v.vehicleModel
@@ -163,21 +177,21 @@ export default function Statistics({ user }) {
             onClick={goToPrevDate}
             style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, width: 34, height: 34, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <span className="material-icons" style={{ fontSize: 16, color: '#475569' }}>chevron_left</span>
+            <span className="material-icons" style={{ fontSize: 16, color: 'var(--text-muted)' }}>chevron_left</span>
           </button>
           <input
             type="date"
             value={selectedDate}
             max={today}
             onChange={e => setSelectedDate(e.target.value)}
-            style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 700, outline: 'none', color: '#1e293b', background: '#f8fafc' }}
+            style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 13, fontWeight: 700, outline: 'none', color: 'var(--text-main)', background: 'var(--bg-main)' }}
           />
           <button
             onClick={goToNextDate}
             disabled={selectedDate >= today}
             style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 8, width: 34, height: 34, cursor: selectedDate >= today ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: selectedDate >= today ? 0.35 : 1 }}
           >
-            <span className="material-icons" style={{ fontSize: 16, color: '#475569' }}>chevron_right</span>
+            <span className="material-icons" style={{ fontSize: 16, color: 'var(--text-muted)' }}>chevron_right</span>
           </button>
         </div>
 
@@ -198,27 +212,26 @@ export default function Statistics({ user }) {
 
       {/* ── Loading ── */}
       {loading && (
-        <div style={{ textAlign: 'center', padding: '80px 0' }}>
-          <span className="material-icons" style={{ fontSize: 40, color: 'var(--primary)', animation: 'spin 1s linear infinite', display: 'block' }}>sync</span>
-          <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: '#64748b' }}>Fetching statistics...</div>
+        <div style={{ padding: '80px 0', display: 'flex', justifyContent: 'center' }}>
+          <TrackifyLoader size={200} animated={true} message="Fetching statistics..." showPercentage={true} />
         </div>
       )}
 
       {/* ── Error ── */}
       {!loading && error && (
-        <div style={{ textAlign: 'center', padding: '56px 0', background: 'white', borderRadius: 16, border: '2px dashed #fecaca' }}>
+        <div style={{ textAlign: 'center', padding: '56px 0', background: 'var(--bg-sidebar)', borderRadius: 16, border: '2px dashed #fecaca' }}>
           <span className="material-icons" style={{ fontSize: 44, color: '#fca5a5', display: 'block', marginBottom: 10 }}>signal_wifi_off</span>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: '#334155', margin: '0 0 4px' }}>{error}</h3>
-          <p style={{ color: '#94a3b8', fontSize: 12, margin: 0 }}>Try a different date or device.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: 0 }}>Try a different date or device.</p>
         </div>
       )}
 
       {/* ── Empty ── */}
       {!loading && !error && !stats && !selectedImei && (
-        <div style={{ textAlign: 'center', padding: '80px 0', background: 'white', borderRadius: 16, border: '2px dashed #e2e8f0' }}>
+        <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--bg-sidebar)', borderRadius: 16, border: '2px dashed #e2e8f0' }}>
           <span className="material-icons" style={{ fontSize: 44, color: '#cbd5e1', display: 'block', marginBottom: 10 }}>insert_chart</span>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: '#334155', margin: '0 0 4px' }}>Select a Device</h3>
-          <p style={{ color: '#94a3b8', fontSize: 12, margin: 0 }}>Choose a device IMEI and date above to view statistics.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12, margin: 0 }}>Choose a device IMEI and date above to view statistics.</p>
         </div>
       )}
 
@@ -258,7 +271,7 @@ export default function Statistics({ user }) {
             </div>
 
             {/* Riding Behaviour + 4 Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 20, alignItems: 'stretch' }}>
+            <div className="stats-grid-main">
 
               {/* Behaviour Score */}
               <div className="card" style={{ borderRadius: 16, padding: 22, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, border: '1px solid #f1f5f9', textAlign: 'center' }}>
@@ -272,17 +285,17 @@ export default function Statistics({ user }) {
                   </svg>
                   <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ fontSize: 22, fontWeight: 900, color: scoreColor(score) }}>{score}</div>
-                    <div style={{ fontSize: 8, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px' }}>/ 100</div>
+                    <div style={{ fontSize: 8, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>/ 100</div>
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 16, fontWeight: 900, color: '#0f172a' }}>{stats.ridingBehaviour?.statusText || scoreLabel(score)}</div>
-                  <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600, marginTop: 4 }}>{stats.ridingBehaviour?.comparisonText}</div>
+                  <div style={{ fontSize: 16, fontWeight: 900, color: 'var(--text-main)' }}>{stats.ridingBehaviour?.statusText || scoreLabel(score)}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600, marginTop: 4 }}>{stats.ridingBehaviour?.comparisonText}</div>
                 </div>
               </div>
 
               {/* 4 metric cards in 2×2 */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14 }}>
                 <StatCard
                   icon="route" iconColor="#2563eb" iconBg="rgba(37,99,235,0.1)"
                   label="Distance Travelled"
@@ -319,13 +332,13 @@ export default function Statistics({ user }) {
             </div>
 
             {/* Speed + Fuel Detail Row */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
 
               {/* Speed Detail */}
               <div className="card" style={{ borderRadius: 16, padding: 22, border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                   <span className="material-icons" style={{ color: '#f59e0b', fontSize: 18 }}>speed</span>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '1px' }}>Speed Breakdown</span>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '1px' }}>Speed Breakdown</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
                   {[
@@ -334,8 +347,8 @@ export default function Statistics({ user }) {
                   ].map(item => (
                     <div key={item.label}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: '#475569' }}>{item.label}</span>
-                        <span style={{ fontSize: 12, fontWeight: 900, color: '#1e293b' }}>{item.val}</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-muted)' }}>{item.label}</span>
+                        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-main)' }}>{item.val}</span>
                       </div>
                       <div style={{ background: '#f1f5f9', borderRadius: 6, height: 7, overflow: 'hidden' }}>
                         <div style={{
@@ -354,7 +367,7 @@ export default function Statistics({ user }) {
               <div className="card" style={{ borderRadius: 16, padding: 22, border: '1px solid #f1f5f9' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                   <span className="material-icons" style={{ color: '#ef4444', fontSize: 18 }}>local_gas_station</span>
-                  <span style={{ fontSize: 12, fontWeight: 900, color: '#1e293b', textTransform: 'uppercase', letterSpacing: '1px' }}>Fuel Summary</span>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '1px' }}>Fuel Summary</span>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                   {[
@@ -367,8 +380,8 @@ export default function Statistics({ user }) {
                         <span className="material-icons" style={{ color: item.color, fontSize: 18 }}>{item.icon}</span>
                       </div>
                       <div>
-                        <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px' }}>{item.label}</div>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: '#1e293b', marginTop: 1 }}>{item.val || '—'}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px' }}>{item.label}</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: 'var(--text-main)', marginTop: 1 }}>{item.val || '—'}</div>
                       </div>
                     </div>
                   ))}

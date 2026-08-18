@@ -2,13 +2,44 @@ import React, { useState, useEffect } from 'react';
 import MetricCard from '../components/MetricCard';
 import { BASE_URL } from '../utils/network';
 import AddVehicleModal from '../components/AddVehicleModal';
+import TrackifyLoader from '../components/TrackifyLoader';
+import Swal from 'sweetalert2';
 
 
-function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
+function VehicleRow({ v, sno, onDelete, onOpenRefuelLogs, onToggleStatus, isSelected, onToggleSelect }) {
   const [showMenu, setShowMenu] = useState(false);
 
+  const isToday = (dateString) => {
+    if (!dateString) return false;
+    const date = new Date(dateString);
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+      date.getMonth() === today.getMonth() &&
+      date.getFullYear() === today.getFullYear();
+  };
+
+  const addedToday = isToday(v.createdAt);
+  const rowBackground = addedToday ? 'rgba(16, 185, 129, 0.08)' : 'transparent';
+  const rowHoverBackground = addedToday ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-main)';
+
   return (
-    <tr style={{ transition: 'all 0.2s ease', background: 'transparent' }} onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'} onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
+    <tr
+      style={{ transition: 'all 0.2s ease', background: rowBackground }}
+      onMouseEnter={(e) => e.currentTarget.style.background = rowHoverBackground}
+      onMouseLeave={(e) => e.currentTarget.style.background = rowBackground}
+    >
+      <td style={{ padding: '16px 8px 16px 16px', width: 40 }}>
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => onToggleSelect(v._id)}
+          style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }}
+        />
+      </td>
+      <td>
+        <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>{sno}</span>
+
+      </td>
       <td>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <img src={v.imgSrc} alt={v.name} className="vehicle-thumbnail" style={{ borderRadius: 12, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }} />
@@ -16,12 +47,12 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
             <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--text-main)', marginBottom: 2 }}>
               {v.name}
             </p>
-            <span className="vehicle-plate">{v.plate}</span>
+            <span className="vehicle-plate" style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.5px' }}>{v.plate}</span>
           </div>
         </div>
       </td>
       <td>
-        <span style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-main)', background: '#f1f5f9', padding: '4px 8px', borderRadius: 6 }}>
+        <span style={{ fontSize: 13, fontFamily: 'monospace', fontWeight: 600, color: 'var(--text-main)', background: 'var(--bg-main)', padding: '4px 8px', borderRadius: 6 }}>
           {v.imei || 'N/A'}
         </span>
       </td>
@@ -32,18 +63,25 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
         </div>
       </td>
       <td>
-        <div style={{ width: 140 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--primary)' }}>{v.healthPct}%</span>
-            <span style={{ fontSize: 9, fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
-              {v.healthText}
-            </span>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: !v.imei ? 'var(--warning)' : (v.warrantyDaysLeft > 0 ? 'var(--success)' : 'var(--error)') }}>
+            {!v.imei ? 'Device Not Assigned' : (v.warrantyDaysLeft > 0 ? `${v.warrantyDaysLeft} Days` : 'Expired')}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>Warranty</span>
+        </div>
+      </td>
+      <td>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>
+            {v.assignedUser !== 'Unassigned' ? v.assignedUser.charAt(0).toUpperCase() : '?'}
           </div>
-          <div className="progress-track" style={{ marginTop: 0 }}>
-            <div className="progress-fill" style={{ width: `${v.healthPct}%`, background: v.statusColor }} />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-main)' }}>{v.assignedUser}</span>
+            {v.assignedUserEmail && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>{v.assignedUserEmail}</span>}
           </div>
         </div>
       </td>
+
       <td>
         <span
           style={{
@@ -84,7 +122,7 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
             justifyContent: 'center',
             transition: 'background 0.2s'
           }}
-          onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-main)'}
           onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
         >
           <span className="material-icons" style={{ fontSize: 20 }}>more_vert</span>
@@ -96,7 +134,7 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
               position: 'absolute',
               right: 24,
               top: '80%',
-              background: 'white',
+              background: 'var(--bg-sidebar)',
               boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
               borderRadius: 12,
               zIndex: 99,
@@ -104,10 +142,39 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
               minWidth: 160,
               display: 'flex',
               flexDirection: 'column',
-              border: '1px solid #f1f5f9'
+              border: '1px solid var(--border)'
             }}
             onMouseLeave={() => setShowMenu(false)}
           >
+            <button
+              style={{
+                padding: '10px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                cursor: v.imei ? 'pointer' : 'not-allowed',
+                fontSize: 13,
+                fontWeight: 700,
+                color: v.imei ? 'var(--primary)' : 'var(--text-muted)',
+                background: 'none',
+                border: 'none',
+                width: '100%',
+                borderRadius: 8,
+                textAlign: 'left',
+                transition: 'background 0.2s',
+                opacity: v.imei ? 1 : 0.5
+              }}
+              onClick={() => {
+                if (v.imei) {
+                  setShowMenu(false);
+                  window.location.href = `/${v.imei}`;
+                }
+              }}
+              onMouseEnter={(e) => { if (v.imei) e.currentTarget.style.background = 'var(--primary-light)'; }}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+            >
+              <span className="material-icons" style={{ fontSize: 16 }}>terminal</span> Command Center
+            </button>
             <button
               style={{
                 padding: '10px 12px',
@@ -126,7 +193,7 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
                 transition: 'background 0.2s'
               }}
               onClick={() => { setShowMenu(false); onOpenRefuelLogs(v); }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#eff6ff'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--primary-light)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
               <span className="material-icons" style={{ fontSize: 16, color: '#3b82f6' }}>local_gas_station</span> Refuel Logs
@@ -140,7 +207,7 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 700,
-                color: 'var(--text-main)',
+                color: v.statusText === 'Active' ? '#f59e0b' : '#10b981',
                 background: 'none',
                 border: 'none',
                 width: '100%',
@@ -148,13 +215,17 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
                 textAlign: 'left',
                 transition: 'background 0.2s'
               }}
-              onClick={() => { setShowMenu(false); }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+              onClick={() => { setShowMenu(false); onToggleStatus(v._id, v.statusText); }}
+              onMouseEnter={(e) => e.currentTarget.style.background = v.statusText === 'Active' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              <span className="material-icons" style={{ fontSize: 16, color: 'var(--text-muted)' }}>edit</span> Edit Specs
+              <span className="material-icons" style={{ fontSize: 16 }}>{v.statusText === 'Active' ? 'power_settings_new' : 'play_circle_filled'}</span>
+              {v.statusText === 'Active' ? 'Deactivate' : 'Activate'}
             </button>
-            <div style={{ height: 1, background: '#f1f5f9', margin: '4px 0' }} />
+
+
+
+            <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
             <button
               style={{
                 padding: '10px 12px',
@@ -164,7 +235,7 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
                 cursor: 'pointer',
                 fontSize: 13,
                 fontWeight: 700,
-                color: '#ef4444',
+                color: 'var(--error)',
                 background: 'none',
                 border: 'none',
                 width: '100%',
@@ -173,10 +244,10 @@ function VehicleRow({ v, onDelete, onOpenRefuelLogs }) {
                 transition: 'background 0.2s'
               }}
               onClick={() => { setShowMenu(false); onDelete(v._id); }}
-              onMouseEnter={(e) => e.currentTarget.style.background = '#fef2f2'}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--error-light)'}
               onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
             >
-              <span className="material-icons" style={{ fontSize: 16, color: '#ef4444' }}>delete_outline</span> Delete Asset
+              <span className="material-icons" style={{ fontSize: 16, color: 'var(--error)' }}>delete_outline</span>Delete Vehicle
             </button>
           </div>
         )}
@@ -190,10 +261,11 @@ export default function Vehicles({ user }) {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshCount, setRefreshCount] = useState(0);
+  const [selectedVehicles, setSelectedVehicles] = useState([]);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = 10;
 
   // Telemetry Refuel logs state
   const [selectedVehicleForRefuel, setSelectedVehicleForRefuel] = useState(null);
@@ -254,7 +326,7 @@ export default function Vehicles({ user }) {
   const handleSaveRefuel = async (e) => {
     e.preventDefault();
     if (!selectedVehicleForRefuel?.imei) {
-      alert("This vehicle does not have a linked device IMEI.");
+      Swal.fire("This vehicle does not have a linked device IMEI.");
       return;
     }
     setRefuelLoading(true);
@@ -281,15 +353,15 @@ export default function Vehicles({ user }) {
       });
 
       if (res.ok) {
-        alert("Refuel log created successfully!");
+        Swal.fire("Refuel log created successfully!");
         setIsRecordFormOpen(false);
         fetchRefuelLogs(selectedVehicleForRefuel.imei);
       } else {
-        alert("Failed to submit refuel log. Please review fields.");
+        Swal.fire("Failed to submit refuel log. Please review fields.");
       }
     } catch (err) {
       console.error(err);
-      alert("Telemetry connection failed.");
+      Swal.fire("Telemetry connection failed.");
     } finally {
       setRefuelLoading(false);
     }
@@ -297,7 +369,7 @@ export default function Vehicles({ user }) {
 
   useEffect(() => {
     const savedUser = user || JSON.parse(localStorage.getItem('user') || '{}');
-    const isUserAdmin = (savedUser.role || '').toLowerCase() === 'admin';
+    const isUserAdmin = ['superadmin'].includes((savedUser.role || '').toLowerCase());
     const userId = savedUser.id || savedUser._id || localStorage.getItem('userId');
 
     const fetchVehicles = async () => {
@@ -314,7 +386,16 @@ export default function Vehicles({ user }) {
           const data = await response.json();
           if (data) {
             const list = data.vehicles || data.data || (Array.isArray(data) ? data : []);
-            setVehicles(list);
+            const sortedList = [...list].sort((a, b) => {
+              const hasImeiA = !!a.imei;
+              const hasImeiB = !!b.imei;
+              if (hasImeiA && !hasImeiB) return -1;
+              if (!hasImeiA && hasImeiB) return 1;
+              const dateA = new Date(a.createdAt || 0).getTime();
+              const dateB = new Date(b.createdAt || 0).getTime();
+              return dateB - dateA; // Descending order (latest first)
+            });
+            setVehicles(sortedList);
           }
         }
       } catch (error) {
@@ -338,8 +419,8 @@ export default function Vehicles({ user }) {
 
   // Map API vehicle data into display format
   const displayVehicles = vehicles.length > 0 ? vehicles.map(v => {
-    const statusVal = v.status || 'Active';
-    const statusColor = statusVal.toLowerCase() === 'active' ? '#10b981' : '#f59e0b';
+    const statusVal = v.status === 1 ? 'Inactive' : 'Active';
+    const statusColor = statusVal === 'Active' ? 'var(--success)' : '#f59e0b';
     return {
       _id: v._id,
       imgSrc: `https://ui-avatars.com/api/?name=${v.vehicleMaker}&background=0f172a&color=fff`,
@@ -349,21 +430,26 @@ export default function Vehicles({ user }) {
       drvName: v.imei,
       fuelIcon: v.fuelType === 'electric' ? 'electric_bolt' : 'local_gas_station',
       fuelType: v.fuelType,
-      healthPct: 100,
       healthText: 'GOOD',
       statusColor: statusColor,
       statusText: statusVal,
+      assignedUser: v.userId ? (v.userId.name || v.userId.firstName || v.userId.email || 'Unknown User') : 'Unassigned',
+      assignedUserEmail: v.userId?.email || '',
+      warrantyDaysLeft: v.warrantyDaysLeft || 0,
+      createdAt: v.createdAt || null
     };
   }) : [];
 
   const filteredVehicles = displayVehicles.filter(v => {
     const q = searchTerm.toLowerCase();
-    
+
     // 1. Search Query Match
     const matchesSearch = (
       v.name?.toLowerCase().includes(q) ||
       v.plate?.toLowerCase().includes(q) ||
-      (v.imei && String(v.imei).toLowerCase().includes(q))
+      (v.imei && String(v.imei).toLowerCase().includes(q)) ||
+      v.assignedUser?.toLowerCase().includes(q) ||
+      v.assignedUserEmail?.toLowerCase().includes(q)
     );
 
     // 2. Model Match
@@ -386,231 +472,149 @@ export default function Vehicles({ user }) {
   const handlePageChange = (pageNo) => {
     if (pageNo >= 1 && pageNo <= totalPages) {
       setCurrentPage(pageNo);
+      setSelectedVehicles([]); // Clear selection when page changes
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedVehicles.length === currentVehicles.length) {
+      setSelectedVehicles([]);
+    } else {
+      setSelectedVehicles(currentVehicles.map(v => v._id));
+    }
+  };
+
+  const handleBulkExport = async () => {
+    const dataToExport = selectedVehicles.length > 0
+      ? filteredVehicles.filter(v => selectedVehicles.includes(v._id))
+      : filteredVehicles;
+
+    if (dataToExport.length === 0) {
+      Swal.fire("No vehicles to export.");
+      return;
+    }
+
+    const imeis = dataToExport.map(v => v.imei).filter(Boolean);
+
+    if (imeis.length === 0) {
+      Swal.fire("No valid IMEIs found to export.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/vehicle/bulk-vehicle-info-export?export=excel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+        body: JSON.stringify({ imeis })
+      });
+      if (!res.ok) throw new Error("Network response was not ok");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Vehicles_Bulk_Export_${new Date().toISOString().split('T')[0]}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to download bulk export:", err);
+      Swal.fire("Failed to download Excel sheet");
+    }
+  };
+
+  const handleToggleStatus = async (vehicleId, currentStatusText) => {
+    const newStatus = currentStatusText === 'Active' ? 1 : 0;
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `Are you sure you want to ${newStatus === 0 ? 'activate' : 'deactivate'} this vehicle?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, proceed!'
+    });
+    if (!result.isConfirmed) return;
+    try {
+      const response = await fetch(`${BASE_URL}/api/vehicle/update-status/${vehicleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'accept': '*/*' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (response.ok) {
+        setRefreshCount(prev => prev + 1);
+      } else {
+        Swal.fire("Failed to update status.");
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Error updating status");
     }
   };
 
   const handleDelete = async (vehicleId) => {
-    if (!window.confirm("Are you sure you want to delete this vehicle?")) return;
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "Are you sure you want to delete this vehicle?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, proceed!'
+    });
+    if (!result.isConfirmed) return;
     try {
-      const response = await fetch(`${BASE_URL}/api/vehicle/${vehicleId}`, {
+      const response = await fetch(`${BASE_URL}/api/vehicle/vehicle/${vehicleId}`, {
         method: 'DELETE',
         headers: { 'accept': '*/*' }
       });
       if (response.ok) {
         setRefreshCount(prev => prev + 1);
       } else {
-        alert("Failed to delete vehicle. Endpoint might be slightly different.");
+        Swal.fire("Failed to delete vehicle. Endpoint might be slightly different.");
       }
     } catch (err) {
       console.error(err);
-      alert("Error deleting vehicle");
+      Swal.fire("Error deleting vehicle");
     }
   };
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '60vh' }}>
+        <TrackifyLoader size={200} animated={true} message="Loading vehicles..." showPercentage={true} />
+      </div>
+    );
+  }
+
   return (
-    <div className="fade-in">
+    <div className="fade-in" style={{ marginTop: 8 }}>
       {/* Header */}
-      <div className="page-header">
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Vehicle Management</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            Manage and monitor your {vehicles.length} active fleet assets
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 16 }}>
-          <button
-            style={{
-              background: '#f1f5f9',
-              border: 'none',
-              color: 'var(--text-main)',
-              fontWeight: 700,
-              padding: '12px 20px',
-              borderRadius: 8,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              fontFamily: "'Inter', sans-serif",
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: 18 }}>tune</span> Advanced Filters
-          </button>
-          <button className="btn-primary" onClick={() => setIsModalOpen(true)} style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span className="material-icons" style={{ fontSize: 18 }}>add</span> Add Vehicle
-          </button>
-        </div>
-      </div>
-
-      {/* Telemetry Stats Cards Grid */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 20,
-          marginBottom: 24,
-          marginTop: 8
-        }}
-      >
-        {/* Card 1: Total Fleet */}
-        <div
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)',
-            border: '1px solid #bfdbfe',
-            padding: 20,
-            borderRadius: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-          }}
-        >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: '#2563eb',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white'
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: 24 }}>local_shipping</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#1e40af', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>Fleet Assets</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#1e3a8a', marginTop: 2 }}>{vehicles.length} <span style={{ fontSize: 13, color: '#60a5fa' }}>Active</span></div>
-          </div>
-        </div>
-
-        {/* Card 2: Diagnostics Scoring */}
-        <div
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)',
-            border: '1px solid #a7f3d0',
-            padding: 20,
-            borderRadius: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-          }}
-        >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: '#10b981',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white'
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: 24 }}>health_and_safety</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#065f46', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>Fleet Health</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#064e3b', marginTop: 2 }}>98.4% <span style={{ fontSize: 13, color: '#34d399' }}>Good</span></div>
-          </div>
-        </div>
-
-        {/* Card 3: Avg Fuel Efficiency */}
-        <div
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, #f0fdfa 0%, #ccfbf1 100%)',
-            border: '1px solid #99f6e4',
-            padding: 20,
-            borderRadius: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-          }}
-        >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: '#0d9488',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white'
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: 24 }}>speed</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#0f766e', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>Fuel Efficiency</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#115e59', marginTop: 2 }}>14.2 <span style={{ fontSize: 14 }}>MPG</span></div>
-          </div>
-        </div>
-
-        {/* Card 4: Maintenance */}
-        <div
-          className="card"
-          style={{
-            background: 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)',
-            border: '1px solid #fcd34d',
-            padding: 20,
-            borderRadius: 16,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 16,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)'
-          }}
-        >
-          <div
-            style={{
-              width: 48,
-              height: 48,
-              borderRadius: 12,
-              background: '#d97706',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white'
-            }}
-          >
-            <span className="material-icons" style={{ fontSize: 24 }}>build</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#92400e', fontWeight: 800, textTransform: 'uppercase', letterSpacing: 0.5 }}>Maintenance</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#78350f', marginTop: 2 }}>0 <span style={{ fontSize: 13, color: '#b45309' }}>Overdue</span></div>
-          </div>
-        </div>
-      </div>
 
       {/* Filters & Search */}
-      <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 20, background: 'white', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border)' }}>
-        <div style={{ position: 'relative', width: 320 }}>
+      <div className="filter-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, marginBottom: 20, background: 'var(--bg-sidebar)', padding: '12px 16px', borderRadius: 12, border: '1px solid var(--border)' }}>
+        <div style={{ position: 'relative', flex: '1 1 auto', minWidth: 200, maxWidth: 320 }}>
           <span className="material-icons" style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontSize: 20 }}>search</span>
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search by model, plate or IMEI..."
+            placeholder="Search by model, plate, IMEI, name, or email..."
             style={{
               width: '100%',
               padding: '10px 16px 10px 40px',
               border: '1px solid var(--border)',
               borderRadius: 8,
               fontSize: 13,
-              background: '#f8fafc',
+              background: 'var(--bg-main)',
               outline: 'none',
               transition: 'all 0.2s ease',
               fontFamily: "'Inter', sans-serif"
             }}
           />
         </div>
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+
           {/* Model Filter */}
           <div className="filter-group" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
             <span className="filter-label" style={{ fontWeight: 700, fontSize: 12, color: 'var(--text-muted)' }}>Model</span>
@@ -618,7 +622,7 @@ export default function Vehicles({ user }) {
               className="filter-select"
               value={modelFilter}
               onChange={(e) => { setModelFilter(e.target.value); setCurrentPage(1); }}
-              style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, minWidth: 120, outline: 'none' }}
+              style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, minWidth: 120, outline: 'none' }}
             >
               {uniqueModels.map(model => (
                 <option key={model} value={model}>{model === 'All' ? 'All Models' : model}</option>
@@ -633,7 +637,7 @@ export default function Vehicles({ user }) {
               className="filter-select"
               value={fuelFilter}
               onChange={(e) => { setFuelFilter(e.target.value); setCurrentPage(1); }}
-              style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, minWidth: 120, outline: 'none' }}
+              style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, minWidth: 120, outline: 'none' }}
             >
               {uniqueFuelTypes.map(fuel => (
                 <option key={fuel} value={fuel}>{fuel === 'All' ? 'All Fuel Types' : fuel.charAt(0).toUpperCase() + fuel.slice(1)}</option>
@@ -648,64 +652,107 @@ export default function Vehicles({ user }) {
               className="filter-select"
               value={statusFilter}
               onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
-              style={{ background: '#f8fafc', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, minWidth: 120, outline: 'none' }}
+              style={{ background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 13, minWidth: 120, outline: 'none' }}
             >
               {uniqueStatuses.map(status => (
                 <option key={status} value={status}>{status === 'All' ? 'All Statuses' : status}</option>
               ))}
             </select>
           </div>
+
+          <button
+            onClick={handleBulkExport}
+            style={{
+              background: 'var(--primary)',
+              color: 'white',
+              border: 'none',
+              borderRadius: 8,
+              padding: '8px 16px',
+              fontSize: 13,
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              transition: 'all 0.2s',
+              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+            }}
+            onMouseEnter={e => e.currentTarget.style.opacity = 0.9}
+            onMouseLeave={e => e.currentTarget.style.opacity = 1}
+          >
+            <span className="material-icons" style={{ fontSize: 18 }}>download</span>
+            Export CSV
+          </button>
+
         </div>
       </div>
 
       {/* Table */}
-      <div className="card" style={{ padding: 0, marginBottom: 24 }}>
-        <table className="vehicle-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <div className="card" style={{ padding: 0, marginBottom: 24, overflowX: 'auto' }}>
+        <table className="vehicle-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
           <thead>
             <tr style={{ textAlign: 'left' }}>
+              <th style={{ padding: '16px 8px 16px 16px', width: 40 }}>
+                <input
+                  type="checkbox"
+                  checked={currentVehicles.length > 0 && selectedVehicles.length === currentVehicles.length}
+                  onChange={toggleSelectAll}
+                  style={{ width: 16, height: 16, cursor: 'pointer', accentColor: 'var(--primary)' }}
+                />
+              </th>
+              <th>S.No</th>
               <th>Vehicle Details</th>
               <th>IMEI</th>
               <th>Fuel Type</th>
-              <th>Health Score</th>
+              <th>Warranty</th>
+              <th>Assigned To</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {loading ? (
-              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px' }}>Loading vehicles...</td></tr>
-            ) : currentVehicles.length > 0 ? (
-              currentVehicles.map((v) => (
-                <VehicleRow key={v._id || v.plate} v={v} onDelete={handleDelete} onOpenRefuelLogs={handleOpenRefuelLogs} />
+            {currentVehicles.length > 0 ? (
+              currentVehicles.map((v, idx) => (
+                <VehicleRow
+                  key={v._id || v.plate}
+                  v={v}
+                  sno={startIndex + idx + 1}
+                  onDelete={handleDelete}
+                  onOpenRefuelLogs={handleOpenRefuelLogs}
+                  onToggleStatus={handleToggleStatus}
+                  isSelected={selectedVehicles.includes(v._id)}
+                  onToggleSelect={(id) => setSelectedVehicles(prev => prev.includes(id) ? prev.filter(vid => vid !== id) : [...prev, id])}
+                />
               ))
             ) : (
-              <tr><td colSpan="6" style={{ textAlign: 'center', padding: '24px' }}>No vehicles found</td></tr>
+              <tr><td colSpan="9" style={{ textAlign: 'center', padding: '24px' }}>No vehicles found</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {/* Pagination */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32, padding: '0 8px' }}>
         <span style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
           Showing <strong>{totalItems > 0 ? startIndex + 1 : 0} - {Math.min(startIndex + itemsPerPage, totalItems)}</strong> of {totalItems} vehicles
         </span>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button className="pagination-btn" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} style={{ opacity: currentPage === 1 ? 0.5 : 1 }}>
+          <button className="pagination-btn" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} style={{ opacity: currentPage === 1 ? 0.5 : 1, border: 'none', background: 'var(--bg-main)', borderRadius: '4px', cursor: 'pointer', padding: '4px' }}>
             <span className="material-icons" style={{ fontSize: 16 }}>chevron_left</span>
           </button>
 
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+          {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map(page => (
             <button
               key={page}
               className={`pagination-btn ${currentPage === page ? 'active' : ''}`}
               onClick={() => handlePageChange(page)}
+              style={{ border: 'none', background: currentPage === page ? 'var(--primary)' : 'var(--bg-main)', color: currentPage === page ? 'white' : 'var(--text-main)', borderRadius: '4px', cursor: 'pointer', padding: '4px 10px', fontSize: 13, fontWeight: 700 }}
             >
               {page}
             </button>
           ))}
 
-          <button className="pagination-btn" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} style={{ opacity: currentPage === totalPages ? 0.5 : 1 }}>
+          <button className="pagination-btn" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} style={{ opacity: currentPage === totalPages ? 0.5 : 1, border: 'none', background: 'var(--bg-main)', borderRadius: '4px', cursor: 'pointer', padding: '4px' }}>
             <span className="material-icons" style={{ fontSize: 16 }}>chevron_right</span>
           </button>
         </div>
@@ -732,14 +779,14 @@ export default function Vehicles({ user }) {
         >
           <div
             style={{
-              background: 'white',
+              background: 'var(--bg-sidebar)',
               borderRadius: 16,
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               width: '100%',
               maxWidth: 700,
               maxHeight: '90vh',
               overflowY: 'auto',
-              border: '1px solid #f1f5f9',
+              border: '1px solid var(--border)',
               display: 'flex',
               flexDirection: 'column'
             }}
@@ -748,17 +795,17 @@ export default function Vehicles({ user }) {
             <div
               style={{
                 padding: '20px 24px',
-                borderBottom: '1px solid #f1f5f9',
+                borderBottom: '1px solid var(--border)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                background: '#f8fafc',
+                background: 'var(--bg-main)',
                 borderTopLeftRadius: 16,
                 borderTopRightRadius: 16
               }}
             >
               <div>
-                <h3 style={{ fontSize: 18, fontWeight: 900, color: '#0f172a', margin: 0 }}>
+                <h3 style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>
                   Fuel Telemetry Logs
                 </h3>
                 <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '4px 0 0 0' }}>
@@ -794,19 +841,19 @@ export default function Vehicles({ user }) {
                   marginBottom: 24
                 }}
               >
-                <div style={{ padding: 12, borderRadius: 8, background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-                  <div style={{ fontSize: 10, color: '#1e3a8a', fontWeight: 800, textTransform: 'uppercase' }}>Logs Recorded</div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#1e3a8a', marginTop: 4 }}>{refuelLogs.length}</div>
+                <div style={{ padding: 12, borderRadius: 8, background: 'var(--primary-light)', border: '1px solid #bfdbfe' }}>
+                  <div style={{ fontSize: 10, color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase' }}>Logs Recorded</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--primary)', marginTop: 4 }}>{refuelLogs.length}</div>
                 </div>
                 <div style={{ padding: 12, borderRadius: 8, background: '#ecfdf5', border: '1px solid #a7f3d0' }}>
-                  <div style={{ fontSize: 10, color: '#064e3b', fontWeight: 800, textTransform: 'uppercase' }}>Total Refueled</div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#064e3b', marginTop: 4 }}>
+                  <div style={{ fontSize: 10, color: 'var(--success)', fontWeight: 800, textTransform: 'uppercase' }}>Total Refueled</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--success)', marginTop: 4 }}>
                     {refuelLogs.reduce((acc, log) => acc + (Number(log.totalFuelFilled) || Number(log.fuelQuantity) || 0), 0).toFixed(1)} L
                   </div>
                 </div>
                 <div style={{ padding: 12, borderRadius: 8, background: '#fef3c7', border: '1px solid #fde68a' }}>
-                  <div style={{ fontSize: 10, color: '#78350f', fontWeight: 800, textTransform: 'uppercase' }}>Total Spend</div>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: '#78350f', marginTop: 4 }}>
+                  <div style={{ fontSize: 10, color: 'var(--warning)', fontWeight: 800, textTransform: 'uppercase' }}>Total Spend</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: 'var(--warning)', marginTop: 4 }}>
                     ${refuelLogs.reduce((acc, log) => acc + (Number(log.totalAmount) || Number(log.totalCost) || 0), 0).toFixed(2)}
                   </div>
                 </div>
@@ -841,7 +888,7 @@ export default function Vehicles({ user }) {
                 <form
                   onSubmit={handleSaveRefuel}
                   style={{
-                    background: '#f8fafc',
+                    background: 'var(--bg-main)',
                     padding: 16,
                     borderRadius: 12,
                     border: '1px solid #e2e8f0',
@@ -933,7 +980,7 @@ export default function Vehicles({ user }) {
                           borderRadius: 8,
                           border: refuelFormData.tankStatus === 1 ? '2px solid #059669' : '1px solid #cbd5e1',
                           background: refuelFormData.tankStatus === 1 ? '#ecfdf5' : 'white',
-                          color: refuelFormData.tankStatus === 1 ? '#047857' : '#64748b',
+                          color: refuelFormData.tankStatus === 1 ? '#047857' : 'var(--text-muted)',
                           fontWeight: 800,
                           fontSize: 12,
                           cursor: 'pointer',
@@ -955,8 +1002,8 @@ export default function Vehicles({ user }) {
                           padding: '10px',
                           borderRadius: 8,
                           border: refuelFormData.tankStatus === 2 ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                          background: refuelFormData.tankStatus === 2 ? '#eff6ff' : 'white',
-                          color: refuelFormData.tankStatus === 2 ? '#1e40af' : '#64748b',
+                          background: refuelFormData.tankStatus === 2 ? 'var(--primary-light)' : 'white',
+                          color: refuelFormData.tankStatus === 2 ? 'var(--primary)' : 'var(--text-muted)',
                           fontWeight: 800,
                           fontSize: 12,
                           cursor: 'pointer',
@@ -1016,7 +1063,7 @@ export default function Vehicles({ user }) {
                 <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 8 }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                     <thead>
-                      <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'left' }}>
+                      <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid #e2e8f0', color: 'var(--text-muted)', fontWeight: 800, textAlign: 'left' }}>
                         <th style={{ padding: '10px 12px' }}>Timestamp</th>
                         <th style={{ padding: '10px 12px' }}>Fuel Added</th>
                         <th style={{ padding: '10px 12px' }}>Price / Litre</th>
@@ -1027,7 +1074,7 @@ export default function Vehicles({ user }) {
                     </thead>
                     <tbody>
                       {refuelLogs.map((log) => (
-                        <tr key={log._id || log.createdAt} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                        <tr key={log._id || log.createdAt} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '10px 12px', fontWeight: 600 }}>
                             {log.refuelDate} • <span style={{ color: 'var(--text-muted)' }}>{log.refuelTime}</span>
                           </td>
@@ -1045,7 +1092,7 @@ export default function Vehicles({ user }) {
                           </td>
                           <td style={{ padding: '10px 12px' }}>
                             <span style={{
-                              background: Number(log.tankStatus) === 2 ? '#eff6ff' : '#ecfdf5',
+                              background: Number(log.tankStatus) === 2 ? 'var(--primary-light)' : '#ecfdf5',
                               color: Number(log.tankStatus) === 2 ? '#1d4ed8' : '#047857',
                               padding: '2px 8px',
                               borderRadius: 12,
@@ -1063,7 +1110,7 @@ export default function Vehicles({ user }) {
               ) : (
                 <div style={{ padding: '30px 0', textAlign: 'center', border: '2px dashed #e2e8f0', borderRadius: 12, color: 'var(--text-muted)' }}>
                   <span className="material-icons" style={{ fontSize: 32, marginBottom: 8, color: '#cbd5e1' }}>local_gas_station</span>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#64748b' }}>No Refuel Logs Registered</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>No Refuel Logs Registered</div>
                   <div style={{ fontSize: 11, marginTop: 4 }}>Add your first log by clicking "Record Refuel" above.</div>
                 </div>
               )}
@@ -1073,10 +1120,10 @@ export default function Vehicles({ user }) {
             <div
               style={{
                 padding: '16px 24px',
-                borderTop: '1px solid #f1f5f9',
+                borderTop: '1px solid var(--border)',
                 display: 'flex',
                 justifyContent: 'flex-end',
-                background: '#f8fafc',
+                background: 'var(--bg-main)',
                 borderBottomLeftRadius: 16,
                 borderBottomRightRadius: 16
               }}
@@ -1084,7 +1131,7 @@ export default function Vehicles({ user }) {
               <button
                 onClick={() => setIsRefuelModalOpen(false)}
                 style={{
-                  background: 'white',
+                  background: 'var(--bg-sidebar)',
                   border: '1px solid #cbd5e1',
                   borderRadius: 6,
                   padding: '8px 16px',

@@ -5,7 +5,7 @@ export default function Reports() {
     <div className="fade-in">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Revenue & Billing</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4 }}>Revenue & Billing</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             Financial analytics mapped directly from the Stitch V1 Report.
           </p>
@@ -25,7 +25,7 @@ export default function Reports() {
         <span className="material-icons" style={{ fontSize: 48, color: 'var(--primary)', marginBottom: 16 }}>
           payments
         </span>
-        <h3 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>Reports Integration Active</h3>
+        <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)' }}>Reports Integration Active</h3>
         <p style={{ color: 'var(--text-muted)', fontSize: 14, marginTop: 8 }}>
           Analytics API synced successfully.
         </p>

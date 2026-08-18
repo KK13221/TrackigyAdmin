@@ -3,7 +3,7 @@ import { BASE_URL } from '../utils/network';
 
 export default function Support({ user }) {
   const activeUserId = user?.id || user?._id || localStorage.getItem('userId') || '69d4edbd81a3afcb12e63140';
-  const isUserAdmin = (user?.role || '').toLowerCase() === 'admin';
+  const isUserAdmin = ['superadmin'].includes((user?.role || '').toLowerCase());
 
   const [slotData, setSlotData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -24,14 +24,24 @@ export default function Support({ user }) {
 
   // Form state for creating a new slot (Admin)
   const [slotDate, setSlotDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [displayTime, setDisplayTime] = useState('');
-  const [sortOrder, setSortOrder] = useState(1);
-  const [isAvailable, setIsAvailable] = useState(true);
+  const [dateError, setDateError] = useState('');
   
+  const [startHour, setStartHour] = useState('10');
+  const [startMinute, setStartMinute] = useState('00');
+  const [startAmPm, setStartAmPm] = useState('AM');
+  
+  const [endHour, setEndHour] = useState('11');
+  const [endMinute, setEndMinute] = useState('00');
+  const [endAmPm, setEndAmPm] = useState('AM');
+  
+  const [startTime, setStartTime] = useState('10:00 AM');
+  const [endTime, setEndTime] = useState('11:00 AM');
+  const [displayTime, setDisplayTime] = useState('10:00 AM - 11:00 AM');
+  
+  const [sortOrder, setSortOrder] = useState(1);
+
   // Form state for booking a slot (Customer)
-  const [selectedImei, setSelectedImei] = useState('');
+  const [selectedVehicleId, setSelectedVehicleId] = useState('');
   const [issueType, setIssueType] = useState('report_issue');
   const [issueRelatedTo, setIssueRelatedTo] = useState('GPS Tracking Issue');
   const [description, setDescription] = useState('');
@@ -80,6 +90,14 @@ export default function Support({ user }) {
     }
   };
 
+  useEffect(() => {
+    const sTime = `${startHour}:${startMinute} ${startAmPm}`;
+    const eTime = `${endHour}:${endMinute} ${endAmPm}`;
+    setStartTime(sTime);
+    setEndTime(eTime);
+    setDisplayTime(`${sTime} - ${eTime}`);
+  }, [startHour, startMinute, startAmPm, endHour, endMinute, endAmPm]);
+
   const fetchSlots = async () => {
     try {
       setIsLoading(true);
@@ -105,8 +123,8 @@ export default function Support({ user }) {
       const json = await res.json();
       if (json.status !== false && json.vehicles) {
         setVehicles(json.vehicles);
-        if (json.vehicles.length > 0) {
-          setSelectedImei(json.vehicles[0].imei || '');
+        if (json.vehicles && json.vehicles.length > 0) {
+          setSelectedVehicleId(json.vehicles[0]._id || '');
         }
       }
     } catch (err) {
@@ -119,7 +137,7 @@ export default function Support({ user }) {
   const fetchUserIssues = async (mode = 'user') => {
     try {
       setIsLoadingIssues(true);
-      const targetUrl = mode === 'all' 
+      const targetUrl = mode === 'all'
         ? `${BASE_URL}/api/help/my-issues/${activeUserId}` // Fetch active session issues
         : `${BASE_URL}/api/help/my-issues/${activeUserId}`;
       const res = await fetch(targetUrl);
@@ -136,6 +154,27 @@ export default function Support({ user }) {
 
   const handleCreateSlot = async (e) => {
     e.preventDefault();
+
+    const now = new Date();
+    const localToday = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+    
+    const maxD = new Date();
+    maxD.setDate(now.getDate() + 10);
+    const localMax = new Date(maxD.getTime() - (maxD.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
+    if (slotDate < localToday) {
+      setDateError("Please select today or a future date.");
+      setSlotDate('');
+      return;
+    }
+
+    if (slotDate > localMax) {
+      setDateError("Please select a date within the next 10 days.");
+      setSlotDate('');
+      return;
+    }
+
+    setDateError('');
     setIsSubmitting(true);
     setSubmitMessage('');
 
@@ -151,18 +190,20 @@ export default function Support({ user }) {
           endTime,
           displayTime,
           sortOrder: Number(sortOrder),
-          isAvailable
+          isAvailable: true
         }),
       });
       const json = await res.json();
       if (res.ok && json.success !== false) {
         setSubmitMessage('Call Slot created successfully!');
         setSlotDate('');
-        setStartTime('');
-        setEndTime('');
-        setDisplayTime('');
+        setStartHour('10');
+        setStartMinute('00');
+        setStartAmPm('AM');
+        setEndHour('11');
+        setEndMinute('00');
+        setEndAmPm('AM');
         setSortOrder(1);
-        setIsAvailable(true);
         fetchSlots(); // Refresh the list
       } else {
         setSubmitMessage(`Error: ${json.message || 'Failed to create slot'}`);
@@ -191,7 +232,7 @@ export default function Support({ user }) {
         },
         body: JSON.stringify({
           userId: activeUserId,
-          imei: selectedImei,
+          vehicleId: selectedVehicleId,
           issueType,
           issueRelatedTo,
           description,
@@ -215,9 +256,28 @@ export default function Support({ user }) {
     }
   };
 
+  const todayDateObj = new Date();
+  const minDateStr = new Date(todayDateObj.getTime() - (todayDateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+  
+  const maxDateObj = new Date();
+  maxDateObj.setDate(todayDateObj.getDate() + 10);
+  const maxDateStr = new Date(maxDateObj.getTime() - (maxDateObj.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
+
   return (
-    <div className="page-content" style={{ padding: '30px', background: '#f8fafc', minHeight: '100vh' }}>
-      
+    <div className="page-content" style={{ padding: '30px', background: 'var(--bg-main)', minHeight: '100vh' }}>
+      <style>{`
+        .support-main-grid {
+          display: grid;
+          grid-template-columns: 1.2fr 1fr;
+          gap: 30px;
+        }
+        @media (max-width: 1024px) {
+          .support-main-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
+
       {/* Top Banner */}
       <div className="page-header" style={{ marginBottom: '30px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
@@ -226,27 +286,17 @@ export default function Support({ user }) {
             {slotData?.screenTitle || 'Help & Support'}
           </h1>
           <p className="page-subtitle" style={{ color: 'var(--text-muted)', marginTop: '4px', fontSize: '14px' }}>
-            {isUserAdmin 
+            {isUserAdmin
               ? 'Administrator dashboard panel to schedule slot configurations and view support incidents.'
               : 'Direct communication portal. File support incidents and book premium diagnostics calls.'}
           </p>
         </div>
-        <span className="tag" style={{
-          background: isUserAdmin ? 'var(--primary-light)' : 'rgba(16, 185, 129, 0.1)',
-          color: isUserAdmin ? 'var(--primary)' : '#10b981',
-          fontSize: '11px',
-          fontWeight: 700,
-          padding: '6px 14px',
-          borderRadius: '20px',
-          textTransform: 'uppercase'
-        }}>
-          {isUserAdmin ? 'Admin Control' : 'Customer Console'}
-        </span>
+
       </div>
 
       {slotData?.importantDescription && (
         <div style={{
-          background: 'white',
+          background: 'var(--bg-sidebar)',
           borderLeft: '5px solid #eab308',
           padding: '20px',
           borderRadius: '12px',
@@ -268,14 +318,14 @@ export default function Support({ user }) {
         </div>
       )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '30px' }}>
-        
+      <div className="support-main-grid">
+
         {/* Left Column: Context Forms */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
-          
+
           {!isUserAdmin ? (
             /* CUSTOMER VIEW: Book Call Slot Form */
-            <div className="card" style={{ padding: '30px', background: 'white', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+            <div className="card" style={{ padding: '30px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="material-icons" style={{ color: 'var(--primary)' }}>bookmark_add</span>
                 File a Support Request & Book Call
@@ -285,23 +335,23 @@ export default function Support({ user }) {
               </p>
 
               <form onSubmit={handleBookCallSlot} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Select Vehicle</label>
                     {isLoadingVehicles ? (
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Loading vehicles...</div>
                     ) : (
                       <select
-                        value={selectedImei}
-                        onChange={(e) => setSelectedImei(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'white', fontSize: '13px', outline: 'none' }}
+                        value={selectedVehicleId}
+                        onChange={(e) => setSelectedVehicleId(e.target.value)}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-sidebar)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}
                         required
                       >
                         {vehicles.length === 0 ? (
                           <option value="">No Active Vehicles Found</option>
                         ) : (
                           vehicles.map(v => (
-                            <option key={v._id || v.imei} value={v.imei}>
+                            <option key={v._id || v.imei} value={v._id}>
                               {v.vehicleMaker ? `${v.vehicleMaker} ${v.vehicleModel || ''}` : (v.vehicleName || v.displayName || 'Vehicle')} ({v.vehicleNumber || v.imei})
                             </option>
                           ))
@@ -311,13 +361,13 @@ export default function Support({ user }) {
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vehicle IMEI</label>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Vehicle ID</label>
                     <input
                       type="text"
-                      placeholder="e.g. 860710086022855"
-                      value={selectedImei}
-                      onChange={(e) => setSelectedImei(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', background: '#f8fafc' }}
+                      placeholder="e.g. 64c3f5... (Auto-filled)"
+                      value={selectedVehicleId}
+                      onChange={(e) => setSelectedVehicleId(e.target.value)}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', background: 'var(--bg-main)', color: 'var(--text-main)', outline: 'none' }}
                       required
                     />
                   </div>
@@ -327,7 +377,7 @@ export default function Support({ user }) {
                     <select
                       value={issueType}
                       onChange={(e) => setIssueType(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'white', fontSize: '13px', outline: 'none' }}
+                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-sidebar)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}
                     >
                       <option value="report_issue">Report Issue / Bug</option>
                       <option value="suggestion">Suggestion / Feedback</option>
@@ -340,7 +390,7 @@ export default function Support({ user }) {
                   <select
                     value={issueRelatedTo}
                     onChange={(e) => setIssueRelatedTo(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'white', fontSize: '13px', outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-sidebar)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}
                   >
                     <option value="GPS Tracking Issue">GPS Tracking Issue (Location not updating)</option>
                     <option value="Engine Immobilizer Control">Engine Immobilizer Control (Lock/Unlock problems)</option>
@@ -361,7 +411,7 @@ export default function Support({ user }) {
                     value={description}
                     onChange={(e) => setDescription(e.target.value.substring(0, 200))}
                     rows={4}
-                    style={{ width: '100%', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
+                    style={{ width: '100%', padding: '12px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none', resize: 'none', fontFamily: 'inherit' }}
                     required
                   />
                 </div>
@@ -374,16 +424,16 @@ export default function Support({ user }) {
                         <span className="material-icons">check_circle</span>
                         <span style={{ fontWeight: 700, fontSize: '13px' }}>Slot Selected Successfully</span>
                       </div>
-                      <button 
-                        type="button" 
-                        onClick={() => setSelectedCallSlotId('')} 
+                      <button
+                        type="button"
+                        onClick={() => setSelectedCallSlotId('')}
                         style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontWeight: 700, fontSize: '12px' }}
                       >
                         Clear Selection
                       </button>
                     </div>
                   ) : (
-                    <div style={{ padding: '12px 16px', background: '#f1f5f9', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: '8px', fontSize: '13px', textAlign: 'center' }}>
+                    <div style={{ padding: '12px 16px', background: 'var(--bg-main)', color: 'var(--text-muted)', border: '1px dashed var(--border)', borderRadius: '8px', fontSize: '13px', textAlign: 'center' }}>
                       Please tap one of the available slot times from the right panel to link a call slot to this request.
                     </div>
                   )}
@@ -431,7 +481,7 @@ export default function Support({ user }) {
             </div>
           ) : (
             /* ADMIN VIEW: Create Call Slot Form */
-            <div className="card" style={{ padding: '30px', background: 'white', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+            <div className="card" style={{ padding: '30px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="material-icons" style={{ color: 'var(--primary)' }}>add_alarm</span>
                 Add New Call Slot (Admin Only)
@@ -443,74 +493,97 @@ export default function Support({ user }) {
               <form onSubmit={handleCreateSlot} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Slot Date</label>
-                  <input
-                    type="date"
-                    value={slotDate}
-                    onChange={(e) => setSlotDate(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none' }}
-                    required
-                  />
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Start Time</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <span className="material-icons" style={{ position: 'absolute', left: '14px', color: 'var(--text-muted)', pointerEvents: 'none', fontSize: '18px' }}>calendar_month</span>
                     <input
-                      type="text"
-                      placeholder="e.g. 10:00"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none' }}
+                      type="date"
+                      min={minDateStr}
+                      max={maxDateStr}
+                      value={slotDate}
+                      onClick={(e) => e.target.showPicker && e.target.showPicker()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (!val) {
+                          setSlotDate('');
+                          setDateError('');
+                          return;
+                        }
+                        if (val < minDateStr) {
+                          setDateError("Please select today or a future date.");
+                          setSlotDate('');
+                          return;
+                        }
+                        if (val > maxDateStr) {
+                          setDateError("Please select a date within the next 10 days.");
+                          setSlotDate('');
+                          return;
+                        }
+                        setDateError('');
+                        setSlotDate(val);
+                      }}
+                      style={{ width: '100%', padding: '10px 14px 10px 40px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none', colorScheme: 'dark', borderColor: dateError ? 'var(--error)' : 'var(--border)', cursor: 'pointer' }}
                       required
                     />
                   </div>
+                  {dateError && (
+                    <span style={{ display: 'block', marginTop: '6px', fontSize: '11px', color: 'var(--error)', fontWeight: 600 }}>
+                      {dateError}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Start Time</label>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select value={startHour} onChange={e => setStartHour(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}>
+                        {Array.from({length: 12}, (_, i) => String(i + 1).padStart(2, '0')).map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <select value={startMinute} onChange={e => setStartMinute(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}>
+                        {['00', '15', '30', '45'].map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <select value={startAmPm} onChange={e => setStartAmPm(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
+                  </div>
                   <div>
                     <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>End Time</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. 11:00"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none' }}
-                      required
-                    />
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select value={endHour} onChange={e => setEndHour(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}>
+                        {Array.from({length: 12}, (_, i) => String(i + 1).padStart(2, '0')).map(h => <option key={h} value={h}>{h}</option>)}
+                      </select>
+                      <select value={endMinute} onChange={e => setEndMinute(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}>
+                        {['00', '15', '30', '45'].map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                      <select value={endAmPm} onChange={e => setEndAmPm(e.target.value)} style={{ flex: 1, padding: '10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}>
+                        <option value="AM">AM</option>
+                        <option value="PM">PM</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Display Time Label</label>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Display Time Label (Auto-Generated)</label>
                   <input
                     type="text"
-                    placeholder="e.g. 10:00 AM - 11:00 AM"
                     value={displayTime}
-                    onChange={(e) => setDisplayTime(e.target.value)}
-                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none' }}
-                    required
+                    disabled
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-sidebar)', color: 'var(--text-muted)', fontSize: '13px', outline: 'none', cursor: 'not-allowed' }}
                   />
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sort Order</label>
-                    <input
-                      type="number"
-                      value={sortOrder}
-                      onChange={(e) => setSortOrder(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px', outline: 'none' }}
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Availability Status</label>
-                    <select
-                      value={isAvailable ? 'true' : 'false'}
-                      onChange={(e) => setIsAvailable(e.target.value === 'true')}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'white', fontSize: '13px', outline: 'none' }}
-                    >
-                      <option value="true">Available</option>
-                      <option value="false">Unavailable / Booked</option>
-                    </select>
-                  </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Sort Order</label>
+                  <input
+                    type="number"
+                    value={sortOrder}
+                    onChange={(e) => setSortOrder(e.target.value)}
+                    style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg-main)', color: 'var(--text-main)', fontSize: '13px', outline: 'none' }}
+                    required
+                  />
                 </div>
 
                 <button
@@ -549,16 +622,16 @@ export default function Support({ user }) {
           )}
 
           {/* List of User's Filed Support Issues */}
-          <div className="card" style={{ padding: '30px', background: 'white', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
+          <div className="card" style={{ padding: '30px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span className="material-icons" style={{ color: 'var(--primary)' }}>history</span>
-                {isUserAdmin 
+                {isUserAdmin
                   ? (adminTab === 'tickets' ? 'Filed Support Incidents overview' : 'All User Suggestions & Feedbacks')
                   : 'Your Filed Support Tickets'}
               </h2>
-              <button 
-                onClick={handleSyncIncidents} 
+              <button
+                onClick={handleSyncIncidents}
                 style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '12px', fontWeight: 700 }}
               >
                 <span className="material-icons" style={{ fontSize: '16px' }}>refresh</span>
@@ -627,13 +700,13 @@ export default function Support({ user }) {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                   {myIssues.map((issue) => (
-                    <div 
-                      key={issue._id} 
-                      style={{ 
-                        padding: '20px', 
-                        border: '1px solid var(--border)', 
-                        borderRadius: '12px', 
-                        background: '#f8fafc',
+                    <div
+                      key={issue._id}
+                      style={{
+                        padding: '20px',
+                        border: '1px solid var(--border)',
+                        borderRadius: '12px',
+                        background: 'var(--bg-main)',
                         transition: 'transform 0.2s, box-shadow 0.2s',
                         cursor: 'default'
                       }}
@@ -648,7 +721,7 @@ export default function Support({ user }) {
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
                         <div>
-                          <span className="tag" style={{ background: '#e2e8f0', color: 'var(--text-main)', fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase', marginRight: '8px' }}>
+                          <span className="tag" style={{ background: 'var(--border)', color: 'var(--text-main)', fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', textTransform: 'uppercase', marginRight: '8px' }}>
                             {issue.issueType === 'report_issue' ? 'Report Issue' : 'Suggestion'}
                           </span>
                           <strong style={{ fontSize: '14px', color: 'var(--text-main)' }}>{issue.issueRelatedTo}</strong>
@@ -709,14 +782,14 @@ export default function Support({ user }) {
                     const statusBg = (sugg.issueStatus || 'pending').toLowerCase() === 'resolved' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)';
 
                     return (
-                      <div 
-                        key={sugg._id} 
-                        style={{ 
-                          padding: '20px', 
-                          border: '1px solid var(--border)', 
+                      <div
+                        key={sugg._id}
+                        style={{
+                          padding: '20px',
+                          border: '1px solid var(--border)',
                           borderLeft: `4px solid ${badgeColor}`,
-                          borderRadius: '12px', 
-                          background: '#f8fafc',
+                          borderRadius: '12px',
+                          background: 'var(--bg-main)',
                           transition: 'transform 0.2s, box-shadow 0.2s',
                           cursor: 'default'
                         }}
@@ -774,7 +847,7 @@ export default function Support({ user }) {
         </div>
 
         {/* Right Column: Active Call Slots Grid & Details */}
-        <div className="card" style={{ padding: '30px', background: 'white', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', alignSelf: 'start' }}>
+        <div className="card" style={{ padding: '30px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.02)', alignSelf: 'start' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="material-icons" style={{ color: 'var(--primary)' }}>calendar_month</span>
@@ -820,12 +893,12 @@ export default function Support({ user }) {
                     <span>{dayGroup.dayText}, {dayGroup.monthText} {dayGroup.dayNumber}</span>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{dayGroup.date}</span>
                   </h3>
-                  
+
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {dayGroup.slots.map((slot, sIdx) => {
                       const isSelected = selectedCallSlotId === slot._id;
                       const isSlotBookable = slot.isAvailable && !isUserAdmin;
-                      
+
                       return (
                         <div
                           key={sIdx}
@@ -836,13 +909,13 @@ export default function Support({ user }) {
                           }}
                           style={{
                             padding: '14px 16px',
-                            background: isSelected 
-                              ? 'var(--primary-light)' 
-                              : (slot.isAvailable ? '#f8fafc' : '#f1f5f9'),
+                            background: isSelected
+                              ? 'var(--primary-light)'
+                              : (slot.isAvailable ? 'var(--bg-main)' : 'var(--bg-sidebar)'),
                             borderRadius: '10px',
-                            border: isSelected 
-                              ? '2px solid var(--primary)' 
-                              : (slot.isAvailable ? '1px solid var(--border)' : '1px solid #e2e8f0'),
+                            border: isSelected
+                              ? '2px solid var(--primary)'
+                              : (slot.isAvailable ? '1px solid var(--border)' : '1px solid var(--border)'),
                             fontSize: '13px',
                             display: 'flex',
                             justifyContent: 'space-between',
@@ -860,7 +933,7 @@ export default function Support({ user }) {
                               Time range: {slot.startTime} - {slot.endTime}
                             </div>
                           </div>
-                          
+
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                             <span style={{
                               color: slot.isAvailable ? 'var(--success)' : 'var(--error)',
@@ -871,7 +944,7 @@ export default function Support({ user }) {
                               {slot.isAvailable ? 'Available' : 'Booked'}
                             </span>
                             {isSlotBookable && (
-                              <span className="material-icons" style={{ fontSize: '16px', color: isSelected ? 'var(--primary)' : '#94a3b8' }}>
+                              <span className="material-icons" style={{ fontSize: '16px', color: isSelected ? 'var(--primary)' : 'var(--text-muted)' }}>
                                 {isSelected ? 'radio_button_checked' : 'radio_button_unchecked'}
                               </span>
                             )}

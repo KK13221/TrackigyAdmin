@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../utils/network';
 
 const STATUS_COLORS = {
-  active:   { bg: '#dcfce7', text: '#16a34a', dot: '#22c55e' },
-  inactive: { bg: '#fef9c3', text: '#ca8a04', dot: '#eab308' },
-  idle:     { bg: '#e0f2fe', text: '#0284c7', dot: '#38bdf8' },
+  active: { bg: 'var(--success-light)', text: 'var(--success)', dot: 'var(--success)' },
+  inactive: { bg: 'var(--warning-light)', text: 'var(--warning)', dot: 'var(--warning)' },
+  idle: { bg: 'var(--primary-light)', text: 'var(--primary)', dot: 'var(--primary)' },
 };
 
 function VehicleCard({ v, selected, onSelect }) {
@@ -18,28 +18,28 @@ function VehicleCard({ v, selected, onSelect }) {
       style={{
         padding: '14px 16px',
         borderRadius: 12,
-        border: selected ? '2px solid #2463eb' : '2px solid transparent',
-        background: selected ? '#eff6ff' : 'white',
+        border: selected ? '2px solid var(--primary)' : '2px solid transparent',
+        background: selected ? 'var(--primary-light)' : 'var(--bg-main)',
         cursor: 'pointer',
         transition: 'all 0.2s',
-        boxShadow: selected ? '0 0 0 3px rgba(36,99,235,0.12)' : '0 1px 4px rgba(0,0,0,0.07)',
+        boxShadow: selected ? '0 0 0 3px var(--primary-light)' : '0 1px 4px rgba(0,0,0,0.07)',
         marginBottom: 10,
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <div style={{
           width: 40, height: 40, borderRadius: 10,
-          background: selected ? '#2463eb' : '#f1f5f9',
+          background: selected ? 'var(--primary)' : 'var(--bg-sidebar)',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontWeight: 800, fontSize: 14,
-          color: selected ? 'white' : '#64748b',
+          color: selected ? 'white' : 'var(--text-muted)',
           flexShrink: 0,
         }}>{initials}</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 800, fontSize: 13, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             {v.vehicleMaker} {v.vehicleModel}
           </div>
-          <div style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>{v.vehicleNumber || v.imei || 'N/A'}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>{v.vehicleNumber || v.imei || 'N/A'}</div>
         </div>
         <span style={{
           background: sc.bg, color: sc.text,
@@ -49,9 +49,9 @@ function VehicleCard({ v, selected, onSelect }) {
         }}>{status}</span>
       </div>
       {v.imei && (
-        <div style={{ marginTop: 10, fontSize: 11, color: '#94a3b8', display: 'flex', gap: 12 }}>
-          <span><span style={{ fontWeight: 700, color: '#64748b' }}>IMEI:</span> {v.imei}</span>
-          {v.fuelType && <span><span style={{ fontWeight: 700, color: '#64748b' }}>Fuel:</span> {v.fuelType}</span>}
+        <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 12 }}>
+          <span><span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>IMEI:</span> {v.imei}</span>
+          {v.fuelType && <span><span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Fuel:</span> {v.fuelType}</span>}
         </div>
       )}
     </div>
@@ -61,7 +61,7 @@ function VehicleCard({ v, selected, onSelect }) {
 function StatBadge({ icon, label, value, color }) {
   return (
     <div style={{
-      background: 'white', borderRadius: 14, padding: '16px 20px',
+      background: 'var(--bg-sidebar)', borderRadius: 14, padding: '16px 20px',
       boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
       display: 'flex', alignItems: 'center', gap: 14, flex: 1,
     }}>
@@ -73,8 +73,8 @@ function StatBadge({ icon, label, value, color }) {
         <span className="material-icons" style={{ color, fontSize: 22 }}>{icon}</span>
       </div>
       <div>
-        <div style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', lineHeight: 1.1 }}>{value}</div>
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#94a3b8', marginTop: 2 }}>{label}</div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-main)', lineHeight: 1.1 }}>{value}</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', marginTop: 2 }}>{label}</div>
       </div>
     </div>
   );
@@ -103,7 +103,7 @@ export default function Dispatch({ user }) {
     const fetchVehicles = async () => {
       setLoading(true);
       try {
-        const isAdmin = (user?.role || '').toLowerCase() === 'admin';
+        const isAdmin = ['superadmin'].includes((user?.role || '').toLowerCase());
         const userId = user?.id || user?._id || localStorage.getItem('userId');
         const url = isAdmin
           ? `${BASE_URL}/api/vehicle/get-vehicles-list`
@@ -168,9 +168,9 @@ export default function Dispatch({ user }) {
   const dispatchedCount = dispatchLogs.length;
 
   const priorityColors = {
-    critical: { bg: '#fef2f2', text: '#dc2626', border: '#fca5a5' },
-    express:  { bg: '#eff6ff', text: '#2463eb', border: '#93c5fd' },
-    standard: { bg: '#f8fafc', text: '#64748b', border: '#e2e8f0' },
+    critical: { bg: 'var(--error-light)', text: 'var(--error)', border: 'var(--error)' },
+    express: { bg: 'var(--primary-light)', text: 'var(--primary)', border: 'var(--primary)' },
+    standard: { bg: 'var(--bg-main)', text: 'var(--text-muted)', border: 'var(--border)' },
   };
 
   return (
@@ -187,8 +187,8 @@ export default function Dispatch({ user }) {
             <span className="material-icons" style={{ color: 'white', fontSize: 22 }}>local_shipping</span>
           </div>
           <div>
-            <h2 style={{ fontSize: 22, fontWeight: 900, color: '#0f172a', margin: 0 }}>Quick Dispatch Center</h2>
-            <p style={{ fontSize: 13, color: '#64748b', margin: 0, marginTop: 2 }}>
+            <h2 style={{ fontSize: 22, fontWeight: 900, color: 'var(--text-main)', margin: 0 }}>Quick Dispatch Center</h2>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0, marginTop: 2 }}>
               Select a vehicle, assign a destination, and create dispatch orders instantly
             </p>
           </div>
@@ -207,16 +207,16 @@ export default function Dispatch({ user }) {
         {/* Left: Vehicle List */}
         <div style={{ width: 320, flexShrink: 0 }}>
           <div style={{
-            background: 'white', borderRadius: 16, padding: 20,
+            background: 'var(--bg-sidebar)', borderRadius: 16, padding: 20,
             boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
           }}>
-            <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span>Fleet Vehicles</span>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>{filtered.length} vehicles</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>{filtered.length} vehicles</span>
             </div>
             {/* Search */}
             <div style={{ position: 'relative', marginBottom: 14 }}>
-              <span className="material-icons" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: '#94a3b8' }}>search</span>
+              <span className="material-icons" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 16, color: 'var(--text-muted)' }}>search</span>
               <input
                 type="text"
                 placeholder="Search vehicle, plate, IMEI…"
@@ -224,19 +224,19 @@ export default function Dispatch({ user }) {
                 onChange={e => setSearch(e.target.value)}
                 style={{
                   width: '100%', padding: '9px 9px 9px 34px', borderRadius: 10,
-                  border: '1.5px solid #e2e8f0', fontSize: 12, color: '#0f172a',
+                  border: '1.5px solid var(--border)', fontSize: 12, color: 'var(--text-main)', background: 'var(--bg-main)',
                   outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
                 }}
               />
             </div>
             <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 2 }}>
               {loading ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>
+                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 13 }}>
                   <span className="material-icons" style={{ fontSize: 32, marginBottom: 8, display: 'block' }}>sync</span>
                   Loading vehicles…
                 </div>
               ) : filtered.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '32px 0', color: '#94a3b8', fontSize: 13 }}>No vehicles found</div>
+                <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text-muted)', fontSize: 13 }}>No vehicles found</div>
               ) : (
                 filtered.map(v => (
                   <VehicleCard
@@ -259,47 +259,47 @@ export default function Dispatch({ user }) {
         <div style={{ flex: 1, minWidth: 300 }}>
           {/* Dispatch Form */}
           <div style={{
-            background: 'white', borderRadius: 16, padding: 24,
+            background: 'var(--bg-sidebar)', borderRadius: 16, padding: 24,
             boxShadow: '0 1px 4px rgba(0,0,0,0.07)', marginBottom: 20,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <span className="material-icons" style={{ color: '#2463eb', fontSize: 20 }}>send</span>
-              <div style={{ fontWeight: 800, fontSize: 15, color: '#0f172a' }}>Create Dispatch Order</div>
+              <span className="material-icons" style={{ color: 'var(--primary)', fontSize: 20 }}>send</span>
+              <div style={{ fontWeight: 800, fontSize: 15, color: 'var(--text-main)' }}>Create Dispatch Order</div>
             </div>
 
             {/* Selected vehicle preview */}
             {selectedVehicle ? (
               <div style={{
-                background: '#eff6ff', borderRadius: 10, padding: '10px 14px',
-                marginBottom: 20, border: '1.5px solid #bfdbfe',
+                background: 'var(--primary-light)', borderRadius: 10, padding: '10px 14px',
+                marginBottom: 20, border: '1.5px solid var(--primary)',
                 display: 'flex', alignItems: 'center', gap: 12,
               }}>
-                <span className="material-icons" style={{ color: '#2463eb', fontSize: 20 }}>directions_car</span>
+                <span className="material-icons" style={{ color: 'var(--primary)', fontSize: 20 }}>directions_car</span>
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: '#1e3a8a' }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--text-main)' }}>
                     {selectedVehicle.vehicleMaker} {selectedVehicle.vehicleModel}
                   </div>
-                  <div style={{ fontSize: 11, color: '#3b82f6', fontFamily: 'monospace' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'monospace' }}>
                     {selectedVehicle.vehicleNumber || selectedVehicle.imei}
                   </div>
                 </div>
               </div>
             ) : (
               <div style={{
-                background: '#fef9c3', borderRadius: 10, padding: '10px 14px',
-                marginBottom: 20, border: '1.5px solid #fde047', fontSize: 12, color: '#92400e',
+                background: 'var(--warning-light)', borderRadius: 10, padding: '10px 14px',
+                marginBottom: 20, border: '1.5px solid var(--warning)', fontSize: 12, color: 'var(--warning)',
               }}>
                 ← Select a vehicle from the list to dispatch
               </div>
             )}
 
             {successMsg && (
-              <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#166534', fontWeight: 600 }}>
+              <div style={{ background: 'var(--success-light)', border: '1px solid var(--success)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--success)', fontWeight: 600 }}>
                 {successMsg}
               </div>
             )}
             {errorMsg && (
-              <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#dc2626', fontWeight: 600 }}>
+              <div style={{ background: 'var(--error-light)', border: '1px solid var(--error)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: 'var(--error)', fontWeight: 600 }}>
                 {errorMsg}
               </div>
             )}
@@ -307,7 +307,7 @@ export default function Dispatch({ user }) {
             <form onSubmit={handleDispatch}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
                     Destination *
                   </label>
                   <input
@@ -317,13 +317,13 @@ export default function Dispatch({ user }) {
                     onChange={e => setForm(f => ({ ...f, destination: e.target.value }))}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: 10,
-                      border: '1.5px solid #e2e8f0', fontSize: 13, color: '#0f172a',
+                      border: '1.5px solid var(--border)', fontSize: 13, color: 'var(--text-main)', background: 'var(--bg-main)',
                       outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
                     }}
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
                     Driver Name
                   </label>
                   <input
@@ -333,7 +333,7 @@ export default function Dispatch({ user }) {
                     onChange={e => setForm(f => ({ ...f, driverName: e.target.value }))}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: 10,
-                      border: '1.5px solid #e2e8f0', fontSize: 13, color: '#0f172a',
+                      border: '1.5px solid var(--border)', fontSize: 13, color: 'var(--text-main)', background: 'var(--bg-main)',
                       outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
                     }}
                   />
@@ -342,7 +342,7 @@ export default function Dispatch({ user }) {
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
                     Priority
                   </label>
                   <select
@@ -350,9 +350,9 @@ export default function Dispatch({ user }) {
                     onChange={e => setForm(f => ({ ...f, priority: e.target.value }))}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: 10,
-                      border: '1.5px solid #e2e8f0', fontSize: 13, color: '#0f172a',
+                      border: '1.5px solid var(--border)', fontSize: 13, color: 'var(--text-main)', background: 'var(--bg-main)',
                       outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
-                      background: 'white', cursor: 'pointer',
+                      background: 'var(--bg-sidebar)', cursor: 'pointer',
                     }}
                   >
                     <option value="standard">Standard</option>
@@ -361,7 +361,7 @@ export default function Dispatch({ user }) {
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
                     Scheduled At
                   </label>
                   <input
@@ -370,7 +370,7 @@ export default function Dispatch({ user }) {
                     onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))}
                     style={{
                       width: '100%', padding: '10px 12px', borderRadius: 10,
-                      border: '1.5px solid #e2e8f0', fontSize: 13, color: '#0f172a',
+                      border: '1.5px solid var(--border)', fontSize: 13, color: 'var(--text-main)', background: 'var(--bg-main)',
                       outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
                     }}
                   />
@@ -378,7 +378,7 @@ export default function Dispatch({ user }) {
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: 6 }}>
                   Note / Instructions
                 </label>
                 <textarea
@@ -388,7 +388,7 @@ export default function Dispatch({ user }) {
                   rows={3}
                   style={{
                     width: '100%', padding: '10px 12px', borderRadius: 10,
-                    border: '1.5px solid #e2e8f0', fontSize: 13, color: '#0f172a',
+                    border: '1.5px solid var(--border)', fontSize: 13, color: 'var(--text-main)', background: 'var(--bg-main)',
                     outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif',
                     resize: 'vertical',
                   }}
@@ -399,7 +399,7 @@ export default function Dispatch({ user }) {
                 type="submit"
                 disabled={submitting}
                 style={{
-                  background: submitting ? '#94a3b8' : 'linear-gradient(135deg, #2463eb, #3b82f6)',
+                  background: submitting ? 'var(--text-muted)' : 'linear-gradient(135deg, #2463eb, #3b82f6)',
                   color: 'white', border: 'none', borderRadius: 10,
                   padding: '12px 28px', fontSize: 14, fontWeight: 800,
                   cursor: submitting ? 'not-allowed' : 'pointer',
@@ -419,13 +419,13 @@ export default function Dispatch({ user }) {
           {/* Dispatch Log */}
           {dispatchLogs.length > 0 && (
             <div style={{
-              background: 'white', borderRadius: 16, padding: 24,
+              background: 'var(--bg-sidebar)', borderRadius: 16, padding: 24,
               boxShadow: '0 1px 4px rgba(0,0,0,0.07)',
             }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#0f172a', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span className="material-icons" style={{ color: '#10b981', fontSize: 18 }}>history</span>
+              <div style={{ fontWeight: 800, fontSize: 14, color: 'var(--text-main)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <span className="material-icons" style={{ color: 'var(--success)', fontSize: 18 }}>history</span>
                 Today's Dispatch Log
-                <span style={{ background: '#dcfce7', color: '#16a34a', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 800 }}>
+                <span style={{ background: 'var(--success-light)', color: 'var(--success)', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 800 }}>
                   {dispatchLogs.length}
                 </span>
               </div>
@@ -438,23 +438,23 @@ export default function Dispatch({ user }) {
                       padding: '12px 16px', background: pc.bg,
                     }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                        <div style={{ fontWeight: 800, fontSize: 13, color: '#0f172a' }}>
+                        <div style={{ fontWeight: 800, fontSize: 13, color: 'var(--text-main)' }}>
                           {log.vehicle}
-                          <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 400, color: '#94a3b8', marginLeft: 8 }}>
+                          <span style={{ fontSize: 11, fontFamily: 'monospace', fontWeight: 400, color: 'var(--text-muted)', marginLeft: 8 }}>
                             {log.vehicleNumber || log.imei}
                           </span>
                         </div>
-                        <span style={{ background: 'white', color: pc.text, border: `1px solid ${pc.border}`, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
+                        <span style={{ background: 'var(--bg-sidebar)', color: pc.text, border: `1px solid ${pc.border}`, padding: '2px 8px', borderRadius: 20, fontSize: 10, fontWeight: 800, textTransform: 'uppercase' }}>
                           {log.priority}
                         </span>
                       </div>
-                      <div style={{ display: 'flex', gap: 20, fontSize: 12, color: '#64748b', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 20, fontSize: 12, color: 'var(--text-muted)', flexWrap: 'wrap' }}>
                         <span><span className="material-icons" style={{ fontSize: 13, verticalAlign: 'middle', marginRight: 3 }}>location_on</span>{log.destination}</span>
                         <span><span className="material-icons" style={{ fontSize: 13, verticalAlign: 'middle', marginRight: 3 }}>person</span>{log.driverName}</span>
                         <span><span className="material-icons" style={{ fontSize: 13, verticalAlign: 'middle', marginRight: 3 }}>schedule</span>{log.dispatchedAt}</span>
                       </div>
                       {log.note && (
-                        <div style={{ marginTop: 6, fontSize: 11, color: '#64748b', fontStyle: 'italic' }}>"{log.note}"</div>
+                        <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>"{log.note}"</div>
                       )}
                     </div>
                   );

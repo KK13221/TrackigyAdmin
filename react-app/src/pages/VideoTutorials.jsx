@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../utils/network';
+import Swal from 'sweetalert2';
 
 export default function VideoTutorials() {
   const [tutorials, setTutorials] = useState([]);
@@ -50,7 +51,7 @@ export default function VideoTutorials() {
       if (categoryId !== 'All') {
         url = `${BASE_URL}/api/api/video-tutorials-list?category_id=${categoryId}`;
       }
-      
+
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
@@ -88,6 +89,12 @@ export default function VideoTutorials() {
     if (!formData.category_id && categories.length > 0) {
       formData.category_id = categories[0].id;
     }
+    
+    if (!thumbnailFile) {
+      Swal.fire("Please select a thumbnail image.");
+      return;
+    }
+    
     setFormLoading(true);
     try {
       const bodyData = new FormData();
@@ -105,7 +112,7 @@ export default function VideoTutorials() {
 
       const resData = await res.json();
       if (res.ok || resData.status) {
-        alert("Tutorial published successfully!");
+        Swal.fire("Tutorial published successfully!");
         setIsPublishModalOpen(false);
         setFormData({
           category_id: categories.length > 0 ? categories[0].id : '',
@@ -115,13 +122,41 @@ export default function VideoTutorials() {
         setThumbnailFile(null);
         fetchTutorials(selectedCategoryId);
       } else {
-        alert(resData.message || "Failed to publish tutorial.");
+        Swal.fire(resData.message || "Failed to publish tutorial.");
       }
     } catch (err) {
       console.error("Error publishing tutorial:", err);
-      alert("Error occurred while publishing video tutorial.");
+      Swal.fire("Error occurred while publishing video tutorial.");
     } finally {
       setFormLoading(false);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'Are you sure you want to delete this video tutorial?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, proceed!'
+    });
+    if (!result.isConfirmed) return;
+    try {
+      const res = await fetch(`${BASE_URL}/api/delete-video-tutorial/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json();
+      if (res.ok || data.status) {
+        Swal.fire('Video tutorial deleted successfully!');
+        fetchTutorials(selectedCategoryId);
+      } else {
+        Swal.fire(data.message || 'Failed to delete video tutorial.');
+      }
+    } catch (err) {
+      console.error('Error deleting video tutorial:', err);
+      Swal.fire('Error occurred while deleting video tutorial.');
     }
   };
 
@@ -162,13 +197,13 @@ export default function VideoTutorials() {
       {/* Header Section */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>
+          {/* <div style={{ fontSize: 11, fontWeight: 900, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '1.5px', marginBottom: 6 }}>
             Help & Learning Hub
-          </div>
-          <h1 style={{ fontSize: 28, fontWeight: 900, color: '#0f172a', letterSpacing: '-0.5px' }}>Video Tutorials</h1>
-          <p style={{ color: '#64748b', fontSize: 13, marginTop: 4 }}>
+          </div> */}
+          {/* <h1 style={{ fontSize: 28, fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.5px' }}>Video Tutorials</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>
             Explore instructional video guides and feature updates to master the Trackify management panel.
-          </p>
+          </p> */}
         </div>
         <button
           onClick={() => {
@@ -220,7 +255,7 @@ export default function VideoTutorials() {
             onClick={() => handleCategorySelect('All')}
             style={{
               background: selectedCategoryId === 'All' ? 'var(--primary)' : '#f1f5f9',
-              color: selectedCategoryId === 'All' ? 'white' : '#475569',
+              color: selectedCategoryId === 'All' ? 'white' : 'var(--text-muted)',
               border: 'none',
               borderRadius: 8,
               padding: '6px 14px',
@@ -238,7 +273,7 @@ export default function VideoTutorials() {
               onClick={() => handleCategorySelect(c.id)}
               style={{
                 background: selectedCategoryId === c.id ? 'var(--primary)' : '#f1f5f9',
-                color: selectedCategoryId === c.id ? 'white' : '#475569',
+                color: selectedCategoryId === c.id ? 'white' : 'var(--text-muted)',
                 border: 'none',
                 borderRadius: 8,
                 padding: '6px 14px',
@@ -253,7 +288,7 @@ export default function VideoTutorials() {
           ))}
         </div>
         <div style={{ position: 'relative', width: 280 }}>
-          <span className="material-icons" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 18, color: '#94a3b8' }}>
+          <span className="material-icons" style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 18, color: 'var(--text-muted)' }}>
             search
           </span>
           <input
@@ -279,13 +314,13 @@ export default function VideoTutorials() {
       {loading ? (
         <div style={{ textAlign: 'center', padding: '80px 0' }}>
           <span className="material-icons" style={{ fontSize: 40, color: 'var(--primary)', animation: 'spin 1s linear infinite' }}>sync</span>
-          <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: '#64748b' }}>Streaming catalog feeds...</div>
+          <div style={{ marginTop: 12, fontSize: 13, fontWeight: 700, color: 'var(--text-muted)' }}>Streaming catalog feeds...</div>
         </div>
       ) : filteredTutorials.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '80px 0', background: 'white', borderRadius: 16, border: '2px dashed #e2e8f0' }}>
+        <div style={{ textAlign: 'center', padding: '80px 0', background: 'var(--bg-sidebar)', borderRadius: 16, border: '2px dashed #e2e8f0' }}>
           <span className="material-icons" style={{ fontSize: 48, color: '#cbd5e1', marginBottom: 12 }}>video_library</span>
           <h3 style={{ fontSize: 16, fontWeight: 800, color: '#334155' }}>No Video Tutorials Available</h3>
-          <p style={{ color: '#94a3b8', fontSize: 12, marginTop: 4 }}>This category has no published tutorials right now.</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 4 }}>This category has no published tutorials right now.</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24 }}>
@@ -305,7 +340,7 @@ export default function VideoTutorials() {
               onClick={() => setActivePlayVideo(video)}
             >
               {/* Thumbnail Container */}
-              <div style={{ aspectRatio: '16/9', background: '#0f172a', position: 'relative', overflow: 'hidden' }}>
+              <div style={{ aspectRatio: '16/9', background: 'var(--text-main)', position: 'relative', overflow: 'hidden' }}>
                 <div style={{
                   position: 'absolute',
                   inset: 0,
@@ -343,7 +378,7 @@ export default function VideoTutorials() {
                   zIndex: 3,
                   boxShadow: '0 4px 10px rgba(0,0,0,0.2)'
                 }}>
-                  <span className="material-icons" style={{ color: '#0f172a', fontSize: 28, marginLeft: 3 }}>play_arrow</span>
+                  <span className="material-icons" style={{ color: 'var(--text-main)', fontSize: 28, marginLeft: 3 }}>play_arrow</span>
                 </div>
                 <img
                   src={getThumbnailUrl(video.video_thumbnail)}
@@ -354,20 +389,32 @@ export default function VideoTutorials() {
 
               {/* Text Description Box */}
               <div style={{ padding: 18, flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <h4 style={{ fontSize: 14, fontWeight: 800, color: '#1e293b', lineHeight: 1.4, marginBottom: 8 }}>
+                <h4 style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-main)', lineHeight: 1.4, marginBottom: 8 }}>
                   {video.video_title}
                 </h4>
-                <p style={{ color: '#64748b', fontSize: 12, lineHeight: 1.5, flex: 1 }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.5, flex: 1 }}>
                   Learn how to leverage this tutorial step-by-step to optimize your daily operations.
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16, paddingTop: 12, borderTop: '1px solid #f1f5f9' }}>
-                  <span style={{ fontSize: 11, color: '#94a3b8', fontWeight: 600 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text-muted)', fontWeight: 600 }}>
                     📂 Video Guide
                   </span>
-                  <span style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
-                    Watch Guide
-                    <span className="material-icons" style={{ fontSize: 14 }}>arrow_forward</span>
-                  </span>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <span
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(video.id);
+                      }}
+                      style={{ fontSize: 11, color: '#ef4444', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}
+                    >
+                      Delete
+                      <span className="material-icons" style={{ fontSize: 14 }}>delete</span>
+                    </span>
+                    <span style={{ fontSize: 11, color: 'var(--primary)', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 4 }}>
+                      Watch Guide
+                      <span className="material-icons" style={{ fontSize: 14 }}>arrow_forward</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -394,7 +441,7 @@ export default function VideoTutorials() {
             style={{
               width: '90%',
               maxWidth: 800,
-              background: '#0f172a',
+              background: 'var(--text-main)',
               borderRadius: 24,
               overflow: 'hidden',
               boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
@@ -416,7 +463,7 @@ export default function VideoTutorials() {
             </div>
 
             {/* Title description footer */}
-            <div style={{ padding: 24, background: '#1e293b' }}>
+            <div style={{ padding: 24, background: 'var(--text-main)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                 <div>
                   <span style={{
@@ -475,7 +522,7 @@ export default function VideoTutorials() {
             style={{
               width: '90%',
               maxWidth: 500,
-              background: 'white',
+              background: 'var(--bg-sidebar)',
               borderRadius: 20,
               padding: 24,
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
@@ -484,7 +531,7 @@ export default function VideoTutorials() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h3 style={{ fontSize: 18, fontWeight: 900, color: '#1e293b', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 900, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span className="material-icons" style={{ color: 'var(--primary)' }}>publish</span>
                 Publish New Video Guide
               </h3>
@@ -493,7 +540,7 @@ export default function VideoTutorials() {
                 style={{
                   background: 'none',
                   border: 'none',
-                  color: '#94a3b8',
+                  color: 'var(--text-muted)',
                   cursor: 'pointer',
                   padding: 4
                 }}
@@ -504,11 +551,11 @@ export default function VideoTutorials() {
 
             <form onSubmit={handlePublish} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 800, color: '#475569', display: 'block', marginBottom: 6 }}>Category *</label>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Category *</label>
                 <select
                   value={formData.category_id}
                   onChange={(e) => setFormData(prev => ({ ...prev, category_id: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, outline: 'none', background: 'white' }}
+                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #cbd5e1', borderRadius: 8, fontSize: 13, outline: 'none', background: 'var(--bg-sidebar)' }}
                 >
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>{c.category_name}</option>
@@ -517,7 +564,7 @@ export default function VideoTutorials() {
               </div>
 
               <div>
-                <label style={{ fontSize: 11, fontWeight: 800, color: '#475569', display: 'block', marginBottom: 6 }}>Tutorial Title *</label>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Tutorial Title *</label>
                 <input
                   type="text"
                   required
@@ -529,7 +576,7 @@ export default function VideoTutorials() {
               </div>
 
               <div>
-                <label style={{ fontSize: 11, fontWeight: 800, color: '#475569', display: 'block', marginBottom: 6 }}>Video URL (YouTube/Vimeo) *</label>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Video URL (YouTube/Vimeo) *</label>
                 <input
                   type="url"
                   required
@@ -541,10 +588,11 @@ export default function VideoTutorials() {
               </div>
 
               <div>
-                <label style={{ fontSize: 11, fontWeight: 800, color: '#475569', display: 'block', marginBottom: 6 }}>Thumbnail Image File (Optional)</label>
+                <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-muted)', display: 'block', marginBottom: 6 }}>Thumbnail Image File</label>
                 <input
                   type="file"
                   accept="image/*"
+                  required
                   onChange={(e) => setThumbnailFile(e.target.files[0])}
                   style={{ width: '100%', fontSize: 12, padding: '4px 0' }}
                 />
@@ -556,7 +604,7 @@ export default function VideoTutorials() {
                   onClick={() => setIsPublishModalOpen(false)}
                   style={{
                     background: '#f1f5f9',
-                    color: '#475569',
+                    color: 'var(--text-muted)',
                     border: 'none',
                     borderRadius: 10,
                     padding: '10px 16px',

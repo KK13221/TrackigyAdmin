@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../utils/network';
+import TrackifyLoader from '../components/TrackifyLoader';
+import Swal from 'sweetalert2';
 
 export default function Warranties({ user }) {
   const [vehicles, setVehicles] = useState([]);
@@ -8,7 +10,7 @@ export default function Warranties({ user }) {
   const [loading, setLoading] = useState(false);
   const [loadingOffer, setLoadingOffer] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  
+
   // Checkout Modal State
   const [showCheckoutModal, setShowCheckoutModal] = useState(false);
   const [checkoutSummary, setCheckoutSummary] = useState(null);
@@ -27,7 +29,7 @@ export default function Warranties({ user }) {
       console.error("Error parsing user in Warranties page:", e);
     }
   }
-  const isUserAdmin = (savedUser.role || '').toLowerCase() === 'admin';
+  const isUserAdmin = ['superadmin'].includes((savedUser.role || '').toLowerCase());
   const userId = savedUser.id || savedUser._id || localStorage.getItem('userId');
 
   // Load all fleet vehicles on mount
@@ -62,11 +64,11 @@ export default function Warranties({ user }) {
   // Load active warranty details & offers when selected vehicle changes
   useEffect(() => {
     if (!selectedVehicle) return;
-    
+
     // Clear previous details
     setWarrantyData(null);
     setErrorMsg('');
-    
+
     if (!selectedVehicle.imei) {
       setErrorMsg('This vehicle does not have a cellular telemetry device (IMEI) linked.');
       return;
@@ -79,7 +81,7 @@ export default function Warranties({ user }) {
     setLoadingOffer(true);
     try {
       const res = await fetch(`${BASE_URL}/api/warranty/device-warranty/${imei}`);
-      
+
       if (res.ok) {
         const json = await res.json();
         if (json && json.success) {
@@ -145,7 +147,7 @@ export default function Warranties({ user }) {
   // Launch checkout modal & fetch breakdown
   const handleOpenCheckout = async () => {
     if (!warrantyData?.offer?.planId || !selectedVehicle?.imei) return;
-    
+
     setShowCheckoutModal(true);
     setLoadingSummary(true);
     try {
@@ -188,11 +190,11 @@ export default function Warranties({ user }) {
         loadWarrantyData(selectedVehicle.imei);
         setTimeout(() => setSuccessBanner(false), 5000);
       } else {
-        alert('Could not complete warranty activation. Please contact support.');
+        Swal.fire('Could not complete warranty activation. Please contact support.');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error validating subscription payment.');
+      Swal.fire('Network error validating subscription payment.');
     } finally {
       setExtending(false);
     }
@@ -200,16 +202,16 @@ export default function Warranties({ user }) {
 
   return (
     <div className="fade-in" style={{ padding: '0 4px', minHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-      
+
       {/* Header Panel */}
-      <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      {/* <div className="page-header" style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>👑 Device Security & Warranties</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4 }}>👑 Device Security & Warranties</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             Monitor active hardware protections, view replacement coverage, and secure extended warranty subscriptions.
           </p>
         </div>
-      </div>
+      </div> */}
 
       {successBanner && (
         <div style={{
@@ -233,7 +235,7 @@ export default function Warranties({ user }) {
       )}
 
       {/* Select Vehicle Dropdown bar */}
-      <div className="card" style={{ padding: 18, marginBottom: 24, borderRadius: 16, background: 'white', border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+      <div className="card" style={{ padding: 18, marginBottom: 24, borderRadius: 16, background: 'var(--bg-sidebar)', border: '1px solid var(--border)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(37, 99, 235, 0.1)', display: 'flex', alignItems: 'center', justifyItem: 'center', justifyContent: 'center' }}>
             <span className="material-icons" style={{ color: 'var(--primary)', fontSize: 22 }}>shield</span>
@@ -251,7 +253,7 @@ export default function Warranties({ user }) {
               const matched = vehicles.find(v => v._id === e.target.value);
               if (matched) setSelectedVehicle(matched);
             }}
-            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 13, background: 'white', fontWeight: 700, outline: 'none' }}
+            style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', fontWeight: 700, outline: 'none' }}
           >
             {vehicles.length === 0 ? (
               <option>No vehicles in fleet...</option>
@@ -270,16 +272,15 @@ export default function Warranties({ user }) {
       </div>
 
       {loading && (
-        <div style={{ textAlign: 'center', padding: '60px 0' }}>
-          <div className="spinner" style={{ margin: '0 auto 16px auto' }} />
-          <p style={{ color: 'var(--text-muted)' }}>Retrieving fleet telemetry data...</p>
+        <div style={{ padding: '60px 0', display: 'flex', justifyContent: 'center' }}>
+          <TrackifyLoader size={200} animated={true} message="Retrieving fleet telemetry data..." showPercentage={true} />
         </div>
       )}
 
       {!loading && errorMsg && (
         <div className="card" style={{ padding: 40, textAlign: 'center', borderRadius: 16 }}>
           <span className="material-icons" style={{ fontSize: 48, color: '#f59e0b', marginBottom: 12 }}>warning_amber</span>
-          <h3 style={{ fontSize: 18, color: '#0f172a', fontWeight: 700 }}>Telemetry Notice</h3>
+          <h3 style={{ fontSize: 18, color: 'var(--text-main)', fontWeight: 700 }}>Telemetry Notice</h3>
           <p style={{ color: 'var(--text-muted)', fontSize: 13, maxWidth: 440, margin: '8px auto 0 auto' }}>{errorMsg}</p>
         </div>
       )}
@@ -287,9 +288,9 @@ export default function Warranties({ user }) {
       {/* Main Details View */}
       {!loading && !errorMsg && warrantyData && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24, paddingBottom: 40 }}>
-          
+
           {/* Active Protection Details Card */}
-          <div className="card" style={{ padding: 24, borderRadius: 20, background: 'white', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+          <div className="card" style={{ padding: 24, borderRadius: 20, background: 'var(--bg-sidebar)', border: '1px solid var(--border)', position: 'relative', display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 10, fontWeight: 900, color: '#10b981', padding: '4px 10px', background: '#10b98115', borderRadius: 8, alignSelf: 'flex-start', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 20 }}>
               🛡️ Active Coverage
             </span>
@@ -308,7 +309,7 @@ export default function Warranties({ user }) {
                 <span className="material-icons" style={{ fontSize: 32, color: 'white' }}>verified_user</span>
               </div>
               <div>
-                <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 4px 0' }}>Ajjas Hardware Secure</h3>
+                <h3 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-main)', margin: '0 0 4px 0' }}>I2612 Hardware Secure</h3>
                 <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Device IMEI: {selectedVehicle?.imei}</span>
               </div>
             </div>
@@ -323,7 +324,7 @@ export default function Warranties({ user }) {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid #f1f5f9' }}>
                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Insured Expiry Date</span>
-                <span style={{ fontSize: 14, fontWeight: 800, color: '#1e293b' }}>{warrantyData.warranty?.expiryDateText || 'N/A'}</span>
+                <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--text-main)' }}>{warrantyData.warranty?.expiryDateText || 'N/A'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0' }}>
                 <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>Claim Processing</span>
@@ -339,13 +340,13 @@ export default function Warranties({ user }) {
           {/* Extended Booster Offer Card */}
           {warrantyData.offer && (
             <div className="card" style={{
-              padding: 24, 
-              borderRadius: 20, 
-              background: 'linear-gradient(135deg, #1e1b4b, #311042)', 
+              padding: 24,
+              borderRadius: 20,
+              background: 'linear-gradient(135deg, #1e1b4b, #311042)',
               color: 'white',
-              position: 'relative', 
+              position: 'relative',
               boxShadow: '0 10px 25px -5px rgba(49, 16, 66, 0.3)',
-              display: 'flex', 
+              display: 'flex',
               flexDirection: 'column'
             }}>
               {/* Special Ribbon */}
@@ -379,7 +380,7 @@ export default function Warranties({ user }) {
               {/* Pricing section */}
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 20 }}>
                 <span style={{ fontSize: 32, fontWeight: 900, color: 'white' }}>₹{warrantyData.offer.offerPrice}</span>
-                <span style={{ fontSize: 16, textDecoration: 'line-through', color: '#94a3b8' }}>₹{warrantyData.offer.originalPrice}</span>
+                <span style={{ fontSize: 16, textDecoration: 'line-through', color: 'var(--text-muted)' }}>₹{warrantyData.offer.originalPrice}</span>
                 <span style={{ fontSize: 11, color: '#34d399', fontWeight: 800, padding: '3px 8px', borderRadius: 6, background: 'rgba(52, 211, 153, 0.15)' }}>
                   Save 50%
                 </span>
@@ -389,7 +390,7 @@ export default function Warranties({ user }) {
 
               {/* Benefits Checklist */}
               <div style={{ flex: 1, marginBottom: 24 }}>
-                <span style={{ fontSize: 11, fontWeight: 900, color: '#94a3b8', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
+                <span style={{ fontSize: 11, fontWeight: 900, color: 'var(--text-muted)', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
                   Guaranteed Benefits Included:
                 </span>
                 <ul style={{ padding: 0, margin: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -399,7 +400,7 @@ export default function Warranties({ user }) {
                       ? `${benefit.title || benefit.text || benefit.name || ''}${benefit.subtitle ? ` - ${benefit.subtitle}` : ''}`
                       : String(benefit);
                     return (
-                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12, color: '#e2e8f0' }}>
+                      <li key={idx} style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 12, color: 'var(--border)' }}>
                         <span className="material-icons" style={{ fontSize: 16, color: '#34d399', marginTop: 1 }}>check_circle</span>
                         <span>{benefitText}</span>
                       </li>
@@ -455,7 +456,7 @@ export default function Warranties({ user }) {
           zIndex: 9999
         }}>
           <div className="card" style={{ width: 440, padding: '24px', position: 'relative', borderRadius: 20, boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' }}>
-            <button 
+            <button
               onClick={() => setShowCheckoutModal(false)}
               style={{ position: 'absolute', top: 16, right: 16, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
@@ -481,7 +482,7 @@ export default function Warranties({ user }) {
 
             {!loadingSummary && checkoutSummary && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                
+
                 {/* Device Reference Box */}
                 <div style={{ padding: 12, background: 'var(--bg-main)', border: '1px solid var(--border)', borderRadius: 12 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -519,18 +520,18 @@ export default function Warranties({ user }) {
 
                 {/* Checkout Trigger Actions */}
                 <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setShowCheckoutModal(false)}
-                    className="btn-secondary" 
+                    className="btn-secondary"
                     style={{ flex: 1, height: 44, borderRadius: 10 }}
                   >
                     Cancel
                   </button>
-                  <button 
+                  <button
                     onClick={handleConfirmExtension}
                     disabled={extending}
-                    className="btn-primary" 
+                    className="btn-primary"
                     style={{
                       flex: 1.5,
                       height: 44,

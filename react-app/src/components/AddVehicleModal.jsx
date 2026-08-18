@@ -202,7 +202,7 @@ export default function AddVehicleModal({ isOpen, onClose, user, onVehicleAdded 
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
-            <button type="button" onClick={onClose} style={{ padding: '10px 16px', background: '#e2e8f0', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, color: 'var(--text-main)' }}>Cancel</button>
+            <button type="button" onClick={onClose} style={{ padding: '10px 16px', background: 'var(--border)', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600, color: 'var(--text-main)' }}>Cancel</button>
             <button type="submit" className="btn-primary" disabled={loading} style={{ padding: '10px 16px', borderRadius: 8, border: 'none', cursor: 'pointer', fontWeight: 600 }}>
               {loading ? 'Adding...' : 'Add Vehicle'}
             </button>
@@ -225,7 +225,7 @@ const modalStyle = {
   width: '100%',
   maxWidth: 450,
   padding: 32,
-  background: 'white',
+  background: 'var(--bg-sidebar)',
   borderRadius: 16,
   boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
 };

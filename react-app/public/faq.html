@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FAQ - Trackify</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #333333;
+            --text-muted: #666666;
+            --primary: #00a2e8;
+            --border: #dddddd;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.6;
+        }
+
+        /* Top Header */
+        .top-bar {
+            padding: 15px 30px;
+            background-color: #f1f1f1;
+            display: flex;
+            align-items: center;
+        }
+
+        .logo {
+            height: 40px;
+            width: auto;
+            max-width: 200px;
+            object-fit: contain;
+        }
+
+        /* Hero Search Area */
+        .hero-section {
+            padding: 40px 20px 40px 20px;
+            text-align: center;
+            background-color: #f1f1f1;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .hero-section h1 {
+            font-size: 32px;
+            font-weight: 600;
+            color: var(--primary);
+            margin: 0 0 10px 0;
+        }
+
+        .hero-section p {
+            font-size: 16px;
+            color: var(--text-muted);
+            margin: 0 0 25px 0;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .search-input-wrapper {
+            position: relative;
+            flex: 1;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 15px;
+            font-family: inherit;
+            background-color: #ffffff;
+            color: #333;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: var(--primary);
+        }
+
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            font-family: inherit;
+            color: white;
+            transition: opacity 0.2s;
+        }
+        
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-search {
+            background-color: #28a745; /* Green */
+        }
+
+        .btn-reset {
+            background-color: #ffc107; /* Yellow */
+            color: #333;
+        }
+
+        /* FAQ Content */
+        .faq-wrapper {
+            max-width: 1000px;
+            margin: 40px auto 60px auto;
+            padding: 0 20px;
+        }
+
+        .faq-item {
+            background-color: #f9f9f9;
+            border: 1px solid var(--border);
+            border-bottom: none;
+        }
+        
+        .faq-item:first-child {
+            border-top-left-radius: 4px;
+            border-top-right-radius: 4px;
+        }
+
+        .faq-item:last-child {
+            border-bottom: 1px solid var(--border);
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+
+        .faq-question {
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            color: #444;
+            user-select: none;
+        }
+        
+        .faq-question:hover {
+            background-color: #f1f1f1;
+        }
+
+        .icon-toggle {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #888;
+            transition: transform 0.3s;
+        }
+
+        .icon-toggle svg {
+            width: 12px;
+            height: 12px;
+            fill: currentColor;
+        }
+
+        .faq-item.open .icon-toggle {
+            transform: rotate(180deg);
+        }
+
+        .faq-answer {
+            padding: 15px 20px;
+            color: #555;
+            font-size: 14px;
+            line-height: 1.6;
+            display: none;
+            background-color: #fff;
+            border-top: 1px solid #eee;
+        }
+
+        .faq-item.open .faq-answer {
+            display: block;
+        }
+
+        .no-results {
+            text-align: center;
+            padding: 40px 20px;
+            font-size: 16px;
+            color: #777;
+            display: none;
+        }
+
+        .no-results svg {
+            width: 48px;
+            height: 48px;
+            fill: var(--text-muted);
+            opacity: 0.5;
+            margin-bottom: 16px;
+        }
+
+        .no-results h3 {
+            margin: 0 0 8px 0;
+            color: var(--text-main);
+        }
+
+        .no-results p {
+            margin: 0;
+            color: var(--text-muted);
+        }
+
+        @media (max-width: 600px) {
+            .search-container { flex-direction: column; }
+            .btn { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <div class="top-bar">
+        <img src="http://139.59.1.109:5000/uploads/1775208191708.png" alt="Trackify Logo" class="logo">
+    </div>
+
+    <!-- Hero / Search -->
+    <div class="hero-section">
+        <h1>How can we help you?</h1>
+        <p></p>
+        
+        <div class="search-container">
+            <input type="text" id="searchInput" class="search-input" placeholder="Search Questions" onkeyup="checkEnter(event)">
+            <button class="btn btn-search" onclick="performSearch()">Search</button>
+            <button class="btn btn-reset" onclick="resetSearch()">Reset</button>
+        </div>
+    </div>
+
+    <!-- FAQ List -->
+    <div class="faq-wrapper">
+        <div id="noResults" class="no-results">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <h3>No results found</h3>
+            <p>We couldn't find any questions matching your search. Please try different keywords.</p>
+        </div>
+        
+        <div id="faqList"></div>
+    </div>
+
+    <script>
+        const faqData = [
+            {
+                q: "What is sim card fee and management charges?",
+                a: "Trackify devices come with an integrated SIM card for seamless connectivity. The SIM card fee and management charges cover the cellular data costs and the maintenance of the tracking servers. Please refer to our Data Plans section for current pricing."
+            },
+            {
+                q: "Is geo fencing available?",
+                a: "Yes, geo-fencing is available. You can set up virtual boundaries around specific areas and receive instant alerts on your mobile phone whenever your vehicle enters or exits these zones."
+            },
+            {
+                q: "Will it work in remote areas of India?",
+                a: "Trackify uses multi-network roaming SIM cards that connect to the strongest available network in any given area, ensuring maximum coverage across India, including most remote areas. However, in areas with absolutely zero cellular coverage, data is stored locally and uploaded once network is restored."
+            },
+            {
+                q: "Why am I getting incorrect notifications?",
+                a: "Incorrect notifications can occasionally happen due to GPS signal bouncing off tall buildings (urban canyon effect) or low battery voltage. Please ensure the device is securely mounted and has a clear view of the sky."
+            },
+            {
+                q: "Why am I not getting notifications?",
+                a: "Please check your phone's notification settings to ensure the Trackify app is allowed to send alerts. Also, verify that your device's data plan is active and that the vehicle is in an area with cellular network coverage."
+            },
+            {
+                q: "Why is my bike's location not updating?",
+                a: "If the location is not updating, the vehicle might be parked underground, the battery might be disconnected, or the SIM data plan may have expired. It will update as soon as the vehicle is moved to an open area with network."
+            },
+            {
+                q: "Why is my Trackify device not sending any data?",
+                a: "Ensure the device is properly connected to the vehicle's battery. If the LEDs are off, check the fuse. If the LEDs are blinking but not solid, it may be searching for a network signal."
+            },
+            {
+                q: "Why does my Trackify device frequently becomes unreachable?",
+                a: "Frequent unreachability usually indicates a loose power connection or poor cellular reception in the area where the vehicle is typically parked. We recommend having the wiring checked by a professional."
+            },
+            {
+                q: "Why are my notifications delayed?",
+                a: "Notification delays of a few seconds are normal depending on the cellular network load. If delays are longer, it could be due to your phone's battery optimization settings restricting background data for the Trackify app."
+            },
+            {
+                q: "What happens if someone unplugs the GPS device?",
+                a: "The Trackify GPS device has a built-in backup battery. If it gets disconnected from the vehicle's main power supply, you will immediately receive a 'Power Disconnect' alert on your phone, and the device will continue tracking for a few hours."
+            },
+            {
+                q: "Will the tracker drain my vehicle's battery?",
+                a: "No. The Trackify device enters a 'Sleep Mode' when the vehicle is stationary (ignition off) for more than a few minutes. In this mode, it consumes negligible power, ensuring your vehicle's battery is safe."
+            }
+        ];
+
+        function renderFaqs(faqsToRender) {
+            const listContainer = document.getElementById('faqList');
+            const noResults = document.getElementById('noResults');
+            
+            listContainer.innerHTML = '';
+
+            if (faqsToRender.length === 0) {
+                listContainer.style.display = 'none';
+                noResults.style.display = 'block';
+                return;
+            }
+
+            listContainer.style.display = 'block';
+            noResults.style.display = 'none';
+
+            faqsToRender.forEach((faq, index) => {
+                const item = document.createElement('div');
+                item.className = 'faq-item';
+                
+                const question = document.createElement('div');
+                question.className = 'faq-question';
+                question.innerHTML = `
+                    <span>${faq.q}</span>
+                    <div class="icon-toggle">
+                        <svg viewBox="0 0 24 24"><path d="M7.41 8.59L12 13.17l4.59-4.58L18 10l-6 6-6-6 1.41-1.41z"/></svg>
+                    </div>
+                `;
+                
+                const answer = document.createElement('div');
+                answer.className = 'faq-answer';
+                answer.innerHTML = faq.a;
+
+                question.onclick = () => {
+                    const isOpen = item.classList.contains('open');
+                    
+                    // Close all
+                    document.querySelectorAll('.faq-item').forEach(el => el.classList.remove('open'));
+                    
+                    // Open if it wasn't open
+                    if (!isOpen) {
+                        item.classList.add('open');
+                    }
+                };
+
+                item.appendChild(question);
+                item.appendChild(answer);
+                listContainer.appendChild(item);
+            });
+        }
+
+        function performSearch() {
+            const query = document.getElementById('searchInput').value.toLowerCase().trim();
+            if (!query) {
+                renderFaqs(faqData);
+                return;
+            }
+            
+            const filtered = faqData.filter(faq => 
+                faq.q.toLowerCase().includes(query) || 
+                faq.a.toLowerCase().includes(query)
+            );
+            
+            renderFaqs(filtered);
+        }
+
+        function resetSearch() {
+            document.getElementById('searchInput').value = '';
+            renderFaqs(faqData);
+        }
+
+        function checkEnter(event) {
+            if (event.key === 'Enter') {
+                performSearch();
+            }
+        }
+
+        // Initial render
+        renderFaqs(faqData);
+    </script>
+</body>
+</html>

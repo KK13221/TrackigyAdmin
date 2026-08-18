@@ -3,6 +3,7 @@ import { BASE_URL } from '../utils/network';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, Tooltip, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import TrackifyLoader from '../components/TrackifyLoader';
 
 // Decode Google polyline with outlier filtering
 const decodePolyline = (str, precision = 5) => {
@@ -78,7 +79,7 @@ const endIcon = L.divIcon({
 
 export default function TripHistory({ user }) {
   const [vehicles, setVehicles] = useState([]);
-  const [selectedImei, setSelectedImei] = useState('860710085959719');
+  const [selectedImei, setSelectedImei] = useState('');
   const [tripData, setTripData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedDateTrip, setSelectedDateTrip] = useState(null);
@@ -88,7 +89,7 @@ export default function TripHistory({ user }) {
     const userId = user?.id || user?._id || localStorage.getItem('userId');
     const fetchVehicles = async () => {
       try {
-        const isUserAdmin = user && (user.role || '').toLowerCase() === 'admin';
+        const isUserAdmin = user && ['superadmin'].includes((user.role || '').toLowerCase());
         const targetUrl = isUserAdmin
           ? `${BASE_URL}/api/device/device-list`
           : `${BASE_URL}/api/vehicle/get-vehicles?userId=${userId}`;
@@ -204,28 +205,24 @@ export default function TripHistory({ user }) {
       <style>{`
         /* Premium custom Leaflet dark popup theme */
         .leaflet-popup-content-wrapper {
-          background: #0f172a !important;
-          color: #f8fafc !important;
-          border: 1px solid #334155 !important;
+          background: var(--bg-sidebar) !important;
+          color: var(--text-main) !important;
+          border: 1px solid var(--border) !important;
           border-radius: 12px !important;
           box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
         }
         .leaflet-popup-tip {
-          background: #0f172a !important;
-          border: 1px solid #334155 !important;
+          background: var(--bg-sidebar) !important;
+          border: 1px solid var(--border) !important;
         }
         .leaflet-popup-close-button {
-          color: #94a3b8 !important;
+          color: var(--text-muted) !important;
         }
         .leaflet-popup-close-button:hover {
-          color: #f8fafc !important;
+          color: var(--text-main) !important;
         }
       `}</style>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '8px' }}>Trip History</h1>
-          <p style={{ color: 'var(--text-muted)' }}>Analyze vehicle trips and performance over time.</p>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <select
             value={selectedImei}
@@ -233,7 +230,7 @@ export default function TripHistory({ user }) {
             style={{
               padding: '10px 16px',
               borderRadius: '8px',
-              background: 'white',
+              background: 'var(--bg-sidebar)',
               border: '1px solid var(--border)',
               fontSize: '14px',
               fontWeight: 600,
@@ -259,15 +256,17 @@ export default function TripHistory({ user }) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '24px', flex: 1, minHeight: 0 }}>
+      <div className="trip-main-grid">
         {/* Sidebar: Date List */}
-        <div style={{ background: 'white', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', background: 'var(--bg-main)' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text-main)' }}>Date Wise Data</h3>
           </div>
           <div style={{ flex: 1, overflowY: 'auto', padding: '12px' }}>
             {loading ? (
-              <p style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Loading trips...</p>
+              <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+                <TrackifyLoader size={120} animated={true} message="Loading trips..." showPercentage={true} />
+              </div>
             ) : tripData.length === 0 ? (
               <p style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>No trip data available.</p>
             ) : (
@@ -304,26 +303,26 @@ export default function TripHistory({ user }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', minHeight: 0 }}>
           {/* Summary Cards */}
           {selectedDateTrip && selectedDateTrip.summary ? (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+            <div className="trip-summary-grid">
+              <div style={{ background: 'var(--bg-sidebar)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Total Distance</p>
                 <h3 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
                   {selectedDateTrip.summary.totalDistanceKm?.toFixed(2)} <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>km</span>
                 </h3>
               </div>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+              <div style={{ background: 'var(--bg-sidebar)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Duration</p>
                 <h3 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
                   {selectedDateTrip.summary.durationHours?.toFixed(2)} <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>hrs</span>
                 </h3>
               </div>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+              <div style={{ background: 'var(--bg-sidebar)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Avg Speed</p>
                 <h3 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
                   {selectedDateTrip.summary.avgSpeed?.toFixed(1)} <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>km/h</span>
                 </h3>
               </div>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+              <div style={{ background: 'var(--bg-sidebar)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                 <p style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600, textTransform: 'uppercase', marginBottom: '8px' }}>Top Speed</p>
                 <h3 style={{ fontSize: '24px', fontWeight: 800, color: 'var(--text-main)' }}>
                   {selectedDateTrip.summary.topSpeed?.toFixed(1)} <span style={{ fontSize: '14px', color: 'var(--text-muted)' }}>km/h</span>
@@ -331,73 +330,73 @@ export default function TripHistory({ user }) {
               </div>
             </div>
           ) : (
-            <div style={{ background: 'white', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text-muted)' }}>
+            <div style={{ background: 'var(--bg-sidebar)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)', textAlign: 'center', color: 'var(--text-muted)' }}>
               Select a date to view trip summary.
             </div>
           )}
 
           {/* Map */}
-          <div style={{ flex: 1, background: 'white', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden', position: 'relative' }}>
-             {/* Map Type Selector Dropdown */}
-             <select
-               value={mapType}
-               onChange={(e) => setMapType(e.target.value)}
-               style={{
-                 position: 'absolute',
-                 top: '12px',
-                 right: '12px',
-                 zIndex: 1000,
-                 background: 'white',
-                 border: '1px solid var(--border)',
-                 borderRadius: '8px',
-                 padding: '8px 12px',
-                 color: 'var(--text-main)',
-                 fontSize: '13px',
-                 fontWeight: 600,
-                 cursor: 'pointer',
-                 boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
-                 outline: 'none'
-               }}
-             >
-               <option value="light">🗺️ Clean Light Map</option>
-               <option value="voyager">📍 Colored Street Map</option>
-               <option value="dark">🌑 Sleek Dark Map</option>
-               <option value="satellite">🛰️ Satellite Map</option>
-             </select>
+          <div style={{ flex: 1, minHeight: '400px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', overflow: 'hidden', position: 'relative' }}>
+            {/* Map Type Selector Dropdown */}
+            <select
+              value={mapType}
+              onChange={(e) => setMapType(e.target.value)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                zIndex: 1000,
+                background: 'var(--bg-sidebar)',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                color: 'var(--text-main)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.08)',
+                outline: 'none'
+              }}
+            >
+              <option value="light">🗺️ Clean Light Map</option>
+              <option value="voyager">📍 Colored Street Map</option>
+              <option value="dark">🌑 Sleek Dark Map</option>
+              <option value="satellite">🛰️ Satellite Map</option>
+            </select>
 
-             <MapContainer
-               center={mapCoords.length > 0 ? mapCoords[0] : [22.7484804921113, 75.8946311624446]}
-               zoom={mapCoords.length > 0 ? 13 : 10}
-               style={{ width: '100%', height: '100%' }}
-             >
-               {mapType === 'satellite' && (
-                 <TileLayer
-                   url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
-                   maxZoom={19}
-                 />
-               )}
-               {mapType === 'light' && (
-                 <TileLayer
-                   url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                   maxZoom={19}
-                 />
-               )}
-               {mapType === 'voyager' && (
-                 <TileLayer
-                   url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                   maxZoom={19}
-                 />
-               )}
-               {mapType === 'dark' && (
-                 <TileLayer
-                   url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                   maxZoom={19}
-                 />
-               )}
-               <ChangeView bounds={mapCoords} />
+            <MapContainer
+              center={mapCoords.length > 0 ? mapCoords[0] : [22.7484804921113, 75.8946311624446]}
+              zoom={mapCoords.length > 0 ? 13 : 10}
+              style={{ width: '100%', height: '100%' }}
+            >
+              {mapType === 'satellite' && (
+                <TileLayer
+                  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+                  maxZoom={19}
+                />
+              )}
+              {mapType === 'light' && (
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  maxZoom={19}
+                />
+              )}
+              {mapType === 'voyager' && (
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  maxZoom={19}
+                />
+              )}
+              {mapType === 'dark' && (
+                <TileLayer
+                  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  maxZoom={19}
+                />
+              )}
+              <ChangeView bounds={mapCoords} />
               {mapCoords.length > 0 && (
                 <>
                   <Polyline positions={mapCoords} pathOptions={{ color: '#2463eb', weight: 4, opacity: 1 }} />
@@ -406,20 +405,20 @@ export default function TripHistory({ user }) {
                   {routePoints.length > 0 && (
                     <Marker position={mapCoords[0]} icon={startIcon}>
                       <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#10b981' }}>Trip Start</span>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--success)' }}>Trip Start</span>
                       </Tooltip>
                       <Popup>
-                        <div style={{ padding: '8px', fontSize: '13px', lineHeight: '1.6', color: '#ffffff', minWidth: '180px' }}>
-                          <strong style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#34d399', borderBottom: '1px solid #334155', paddingBottom: '4px' }}>
+                        <div style={{ padding: '8px', fontSize: '13px', lineHeight: '1.6', color: 'var(--text-main)', minWidth: '180px' }}>
+                          <strong style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--success)', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
                             Start Point
                           </strong>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            <div><strong style={{ color: '#94a3b8' }}>Time:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#f8fafc' }}>{routePoints[0].time || 'N/A'}</span></div>
+                            <div><strong style={{ color: 'var(--text-muted)' }}>Time:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-main)' }}>{routePoints[0].time || 'N/A'}</span></div>
                             {routePoints[0].speed !== undefined && (
-                              <div><strong style={{ color: '#94a3b8' }}>Speed:</strong> <span style={{ color: '#f8fafc' }}>{routePoints[0].speed} km/h</span></div>
+                              <div><strong style={{ color: 'var(--text-muted)' }}>Speed:</strong> <span style={{ color: 'var(--text-main)' }}>{routePoints[0].speed} km/h</span></div>
                             )}
-                            <div><strong style={{ color: '#94a3b8' }}>Latitude:</strong> <span style={{ color: '#f8fafc' }}>{mapCoords[0][0].toFixed(6)}</span></div>
-                            <div><strong style={{ color: '#94a3b8' }}>Longitude:</strong> <span style={{ color: '#f8fafc' }}>{mapCoords[0][1].toFixed(6)}</span></div>
+                            <div><strong style={{ color: 'var(--text-muted)' }}>Latitude:</strong> <span style={{ color: 'var(--text-main)' }}>{mapCoords[0][0].toFixed(6)}</span></div>
+                            <div><strong style={{ color: 'var(--text-muted)' }}>Longitude:</strong> <span style={{ color: 'var(--text-main)' }}>{mapCoords[0][1].toFixed(6)}</span></div>
                           </div>
                         </div>
                       </Popup>
@@ -447,15 +446,15 @@ export default function TripHistory({ user }) {
                         }}
                       >
                         <Popup>
-                          <div style={{ padding: '6px', fontSize: '12px', lineHeight: '1.5', minWidth: '160px', color: '#ffffff' }}>
-                            <strong style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: '#38bdf8', borderBottom: '1px solid #334155', paddingBottom: '4px' }}>
+                          <div style={{ padding: '6px', fontSize: '12px', lineHeight: '1.5', minWidth: '160px', color: 'var(--text-main)' }}>
+                            <strong style={{ display: 'block', fontSize: '13px', marginBottom: '6px', color: 'var(--primary)', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
                               Route Point #{idx + 1}
                             </strong>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                              <div><strong style={{ color: '#94a3b8' }}>Time:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#f8fafc' }}>{ptTime}</span></div>
-                              <div><strong style={{ color: '#94a3b8' }}>Speed:</strong> <span style={{ color: '#f8fafc' }}>{ptSpeed} km/h</span></div>
-                              <div><strong style={{ color: '#94a3b8' }}>Latitude:</strong> <span style={{ color: '#f8fafc' }}>{ptLat.toFixed(6)}</span></div>
-                              <div><strong style={{ color: '#94a3b8' }}>Longitude:</strong> <span style={{ color: '#f8fafc' }}>{ptLng.toFixed(6)}</span></div>
+                              <div><strong style={{ color: 'var(--text-muted)' }}>Time:</strong> <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-main)' }}>{ptTime}</span></div>
+                              <div><strong style={{ color: 'var(--text-muted)' }}>Speed:</strong> <span style={{ color: 'var(--text-main)' }}>{ptSpeed} km/h</span></div>
+                              <div><strong style={{ color: 'var(--text-muted)' }}>Latitude:</strong> <span style={{ color: 'var(--text-main)' }}>{ptLat.toFixed(6)}</span></div>
+                              <div><strong style={{ color: 'var(--text-muted)' }}>Longitude:</strong> <span style={{ color: 'var(--text-main)' }}>{ptLng.toFixed(6)}</span></div>
                             </div>
                           </div>
                         </Popup>
@@ -467,50 +466,50 @@ export default function TripHistory({ user }) {
                   {routePoints.length > 1 && (
                     <Marker position={mapCoords[mapCoords.length - 1]} icon={endIcon} ref={endMarkerRef}>
                       <Tooltip direction="top" offset={[0, -10]} opacity={0.9}>
-                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#ef4444' }}>Trip End</span>
+                        <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--error)' }}>Trip End</span>
                       </Tooltip>
                       <Popup>
-                        <div style={{ padding: '12px', fontSize: '13px', lineHeight: '1.6', color: '#ffffff', minWidth: '240px' }}>
-                          <strong style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: '#f87171', borderBottom: '1px solid #334155', paddingBottom: '6px' }}>
+                        <div style={{ padding: '12px', fontSize: '13px', lineHeight: '1.6', color: 'var(--text-main)', minWidth: '240px' }}>
+                          <strong style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'var(--error)', borderBottom: '1px solid var(--border)', paddingBottom: '6px' }}>
                             Trip Summary & End
                           </strong>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#94a3b8' }}>Date:</span>
-                              <span style={{ fontWeight: 700, color: '#f8fafc' }}>{selectedDateTrip?.date}</span>
+                              <span style={{ color: 'var(--text-muted)' }}>Date:</span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{selectedDateTrip?.date}</span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <span style={{ color: '#94a3b8' }}>End Time:</span>
-                              <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: '11px', color: '#f8fafc' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>End Time:</span>
+                              <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: '11px', color: 'var(--text-main)' }}>
                                 {routePoints[routePoints.length - 1].time || 'N/A'}
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#94a3b8' }}>Total Distance:</span>
-                              <span style={{ fontWeight: 700, color: '#38bdf8' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Total Distance:</span>
+                              <span style={{ fontWeight: 700, color: 'var(--primary)' }}>
                                 {selectedDateTrip?.summary?.totalDistanceKm?.toFixed(2)} km
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#94a3b8' }}>Duration:</span>
-                              <span style={{ fontWeight: 700, color: '#f8fafc' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Duration:</span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
                                 {selectedDateTrip?.summary?.durationHours?.toFixed(2)} hrs
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#94a3b8' }}>Avg Speed:</span>
-                              <span style={{ fontWeight: 700, color: '#f8fafc' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Avg Speed:</span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
                                 {selectedDateTrip?.summary?.avgSpeed?.toFixed(1)} km/h
                               </span>
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                              <span style={{ color: '#94a3b8' }}>Top Speed:</span>
-                              <span style={{ fontWeight: 700, color: '#f8fafc' }}>
+                              <span style={{ color: 'var(--text-muted)' }}>Top Speed:</span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>
                                 {selectedDateTrip?.summary?.topSpeed?.toFixed(1)} km/h
                               </span>
                             </div>
-                            <div style={{ borderTop: '1px solid #334155', paddingTop: '6px', marginTop: '2px', fontSize: '11px', color: '#64748b' }}>
-                              <strong style={{ color: '#94a3b8' }}>End Coords:</strong> <span style={{ color: '#cbd5e1' }}>{mapCoords[mapCoords.length - 1][0].toFixed(6)}, {mapCoords[mapCoords.length - 1][1].toFixed(6)}</span>
+                            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '6px', marginTop: '2px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              <strong style={{ color: 'var(--text-muted)' }}>End Coords:</strong> <span style={{ color: 'var(--text-main)' }}>{mapCoords[mapCoords.length - 1][0].toFixed(6)}, {mapCoords[mapCoords.length - 1][1].toFixed(6)}</span>
                             </div>
                           </div>
                         </div>

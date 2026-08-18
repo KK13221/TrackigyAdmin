@@ -23,6 +23,20 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
 
+  const [profileImage, setProfileImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+
+  const countryCities = {
+    'India': ['Mumbai', 'Delhi', 'Bangalore', 'Chennai', 'Kolkata', 'Indore', 'Pune'],
+    'USA': ['New York', 'Los Angeles', 'Chicago', 'Houston', 'Phoenix'],
+    'UK': ['London', 'Birmingham', 'Manchester', 'Glasgow'],
+    'Canada': ['Toronto', 'Vancouver', 'Montreal', 'Calgary'],
+    'Australia': ['Sydney', 'Melbourne', 'Brisbane', 'Perth']
+  };
+
+  // Helper for input styling
+  const inputStyle = { width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'var(--bg-main)', color: 'var(--text-main)', outline: 'none', fontSize: '13px' };
+
   const userId = localStorage.getItem('userId') || '69d3a343bcc2861ea8d8d023';
 
   useEffect(() => {
@@ -51,7 +65,7 @@ export default function Settings() {
         setCity(userData.city || '');
         setState(userData.state || '');
         setAddress(userData.address || '');
-        setRole((userData.role || '').toLowerCase() === 'admin' ? 'Admin' : 'Customer');
+        setRole((userData.role || '').toLowerCase() === 'superadmin' ? 'Superadmin' : (userData.role || '').toLowerCase() === 'admin' ? 'Admin' : 'Customer');
       } else {
         setError('No user profile data found.');
       }
@@ -70,13 +84,46 @@ export default function Settings() {
 
     try {
       const targetId = user?._id || user?.id || userId;
+      const formData = new FormData();
+      formData.append('name', name);
+      formData.append('middleName', middleName);
+      formData.append('lastName', lastName);
+      formData.append('mobile_number', mobile);
+      formData.append('email', email);
+      formData.append('dateOfBirth', dateOfBirth);
+      formData.append('country', country);
+      formData.append('state', state);
+      formData.append('city', city);
+      formData.append('address', address);
+
+      if (profileImage) {
+        formData.append('userProfile', profileImage);
+      }
+
       // Map exactly to endpoint: /api/auth/user-detail/:userId
       const res = await fetch(`${BASE_URL}/api/auth/user-detail/${targetId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+        body: formData
+      });
+
+      if (!res.ok) {
+        throw new Error(`Failed to update profile: Server returned status ${res.status}`);
+      }
+
+      const responseJson = await res.json();
+      setSaveMessage('Profile updated successfully.');
+
+      // Update local UI user state model
+      if (responseJson.data) {
+        setUser(responseJson.data);
+        // Refresh preview based on updated data
+        if (responseJson.data.userProfile) {
+          setImagePreview(null);
+          setProfileImage(null);
+        }
+      } else {
+        setUser(prev => ({
+          ...prev,
           name,
           middleName,
           lastName,
@@ -87,30 +134,8 @@ export default function Settings() {
           state,
           city,
           address
-        })
-      });
-
-      if (!res.ok) {
-        throw new Error(`Failed to update profile: Server returned status ${res.status}`);
+        }));
       }
-
-      const responseJson = await res.json();
-      setSaveMessage('');
-
-      // Update local UI user state model
-      setUser(prev => ({
-        ...prev,
-        name,
-        middleName,
-        lastName,
-        mobile_number: mobile,
-        email,
-        dateOfBirth,
-        country,
-        state,
-        city,
-        address
-      }));
     } catch (err) {
       console.error('Error updating user details:', err);
       setError(`Failed to save: ${err.message}`);
@@ -123,7 +148,7 @@ export default function Settings() {
     <div className="page-content fade-in" style={{ padding: '30px', maxWidth: '1200px', margin: '0 auto' }}>
       <div className="page-header" style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 className="page-title" style={{ fontSize: '28px', fontWeight: 800, color: '#0f172a', marginBottom: '4px' }}>System Settings</h1>
+          <h1 className="page-title" style={{ fontSize: '28px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>System Settings</h1>
           <p className="page-subtitle" style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
             Manage your account credentials, security preferences, and telemetry dashboard parameters.
           </p>
@@ -131,7 +156,7 @@ export default function Settings() {
         <button
           onClick={fetchUserProfile}
           style={{
-            background: 'white',
+            background: 'var(--bg-sidebar)',
             border: '1px solid var(--border)',
             color: 'var(--text-main)',
             fontWeight: 700,
@@ -156,7 +181,7 @@ export default function Settings() {
           <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>Fetching User Profile from backend...</span>
         </div>
       ) : error ? (
-        <div style={{ padding: '24px', background: 'var(--error-light)', color: 'var(--error)', borderRadius: '12px', border: '1px solid #fee2e2', marginBottom: '24px' }}>
+        <div style={{ padding: '24px', background: 'var(--error-light)', color: 'var(--error)', borderRadius: '12px', marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 700, marginBottom: '8px' }}>
             <span className="material-icons">error_outline</span>
             Failed to Load User Profile
@@ -171,50 +196,90 @@ export default function Settings() {
           </button>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '30px' }}>
+        <div className="settings-main-grid">
 
           {/* Left Column: Premium User Avatar Card & Quick Tabs */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div className="card" style={{ padding: '24px', textAlign: 'center', background: 'white', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+            <div className="card" style={{ padding: '24px', textAlign: 'center', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
               <div style={{ position: 'relative', width: '120px', height: '120px', margin: '0 auto 16px auto' }}>
                 <img
                   src={
-                    user?.userProfile
-                      ? (user.userProfile.startsWith('http') ? user.userProfile : `${BASE_URL}/${user.userProfile}`)
-                      : 'http://139.59.1.109:5000/uploads/1775477571309.png'
+                    imagePreview ? imagePreview :
+                      (user?.userProfile
+                        ? (user.userProfile.startsWith('http') ? user.userProfile : `${BASE_URL}/${user.userProfile}`)
+                        : 'https://trackifybackend.inurum.com/uploads/1775477571309.png')
                   }
                   alt={user?.name}
+                  onClick={() => document.getElementById('profileImageInput').click()}
                   style={{
                     width: '100%',
                     height: '100%',
                     borderRadius: '50%',
                     objectFit: 'cover',
-                    border: '4px solid #f1f5f9',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                    border: '4px solid var(--bg-main)',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                    cursor: 'pointer'
                   }}
                 />
+                <input
+                  type="file"
+                  id="profileImageInput"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setProfileImage(file);
+                      setImagePreview(URL.createObjectURL(file));
+                    }
+                  }}
+                />
+                <div
+                  onClick={() => document.getElementById('profileImageInput').click()}
+                  style={{
+                    position: 'absolute',
+                    bottom: '8px',
+                    right: '8px',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    background: 'var(--primary)',
+                    color: 'white',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                    border: '2px solid var(--bg-sidebar)',
+                    zIndex: 2
+                  }}
+                  title="Upload New Profile Image"
+                >
+                  <span className="material-icons" style={{ fontSize: '14px' }}>edit</span>
+                </div>
                 <span style={{
                   position: 'absolute',
-                  bottom: '4px',
+                  top: '4px',
                   right: '4px',
                   width: '20px',
                   height: '20px',
                   borderRadius: '50%',
-                  background: '#10b981',
-                  border: '3px solid white',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                }} title={(user?.role || '').toLowerCase() === 'admin' ? 'Active System Administrator' : 'Active Customer'} />
+                  background: ['admin', 'superadmin'].includes((user?.role || '').toLowerCase()) ? 'var(--success)' : 'var(--warning)',
+                  border: '3px solid var(--bg-sidebar)',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                  zIndex: 1
+                }} title={(user?.role || '').toLowerCase() === 'superadmin' ? 'Active Super Administrator' : (user?.role || '').toLowerCase() === 'admin' ? 'Active System Administrator' : 'Active Customer'} />
               </div>
               <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px' }}>{user?.name}</h2>
               <span className="tag" style={{
-                background: (user?.role || '').toLowerCase() === 'admin' ? 'var(--primary-light)' : 'rgba(16, 185, 129, 0.1)',
-                color: (user?.role || '').toLowerCase() === 'admin' ? 'var(--primary)' : '#10b981',
+                background: (user?.role || '').toLowerCase() === 'superadmin' ? 'rgba(139, 92, 246, 0.1)' : (user?.role || '').toLowerCase() === 'admin' ? 'var(--primary-light)' : 'var(--success-light)',
+                color: (user?.role || '').toLowerCase() === 'superadmin' ? '#8b5cf6' : (user?.role || '').toLowerCase() === 'admin' ? 'var(--primary)' : 'var(--success)',
                 fontSize: '11px',
                 fontWeight: 700,
                 padding: '4px 12px',
                 textTransform: 'uppercase'
               }}>
-                {(user?.role || '').toLowerCase() === 'admin' ? 'Admin' : 'Customer'}
+                {(user?.role || '').toLowerCase() === 'superadmin' ? 'Superadmin' : (user?.role || '').toLowerCase() === 'admin' ? 'Admin' : 'Customer'}
               </span>
 
               <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '20px 0' }} />
@@ -236,7 +301,7 @@ export default function Settings() {
             </div>
 
             {/* Quick tab switcher */}
-            <div className="card" style={{ padding: '12px', background: 'white', borderRadius: '16px', border: '1px solid var(--border)' }}>
+            <div className="card" style={{ padding: '12px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <button
                   onClick={() => setActiveTab('profile')}
@@ -264,7 +329,7 @@ export default function Settings() {
           </div>
 
           {/* Right Column: Dynamic Form Panel based on Active Tab */}
-          <div className="card" style={{ padding: '30px', background: 'white', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
+          <div className="card" style={{ padding: '30px', background: 'var(--bg-sidebar)', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.02)' }}>
 
             {activeTab === 'profile' && (
               <div>
@@ -274,24 +339,15 @@ export default function Settings() {
                 </p>
 
                 <form onSubmit={handleSaveChanges} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>First Name</label>
                       <input
                         type="text"
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                        style={inputStyle}
                         required
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Middle Name</label>
-                      <input
-                        type="text"
-                        value={middleName}
-                        onChange={(e) => setMiddleName(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
                       />
                     </div>
                     <div>
@@ -300,19 +356,19 @@ export default function Settings() {
                         type="text"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                        style={inputStyle}
                       />
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Mobile Phone</label>
                       <input
                         type="text"
                         value={mobile}
                         onChange={(e) => setMobile(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                        style={inputStyle}
                       />
                     </div>
                     <div>
@@ -321,7 +377,7 @@ export default function Settings() {
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                        style={inputStyle}
                         required
                       />
                     </div>
@@ -331,39 +387,56 @@ export default function Settings() {
                         type="text"
                         value={role}
                         onChange={(e) => setRole(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px', background: '#f8fafc', color: 'var(--text-muted)', cursor: 'not-allowed' }}
+                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', background: 'var(--bg-main)', color: 'var(--text-muted)', cursor: 'not-allowed' }}
                         disabled
                       />
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '20px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Date of Birth</label>
                       <input
                         type="date"
+                        max={new Date().toISOString().split("T")[0]}
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                        style={inputStyle}
                       />
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Country</label>
-                      <input
-                        type="text"
+                      <select
                         value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
-                      />
+                        onChange={(e) => {
+                          setCountry(e.target.value);
+                          setCity(''); // reset city when country changes
+                        }}
+                        style={inputStyle}
+                      >
+                        <option value="">Select Country</option>
+                        {Object.keys(countryCities).map(c => (
+                          <option key={c} value={c}>{c}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>City</label>
                       <input
                         type="text"
+                        list="city-options"
                         value={city}
                         onChange={(e) => setCity(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                        style={inputStyle}
+                        placeholder={country ? "Enter or select city" : "Enter city"}
                       />
+                      {country && countryCities[country] && (
+                        <datalist id="city-options">
+                          {countryCities[country].map(c => (
+                            <option key={c} value={c} />
+                          ))}
+                        </datalist>
+                      )}
                     </div>
                     <div>
                       <label style={{ display: 'block', marginBottom: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>State / Region</label>
@@ -371,7 +444,7 @@ export default function Settings() {
                         type="text"
                         value={state}
                         onChange={(e) => setState(e.target.value)}
-                        style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                        style={inputStyle}
                       />
                     </div>
                   </div>
@@ -382,7 +455,7 @@ export default function Settings() {
                       type="text"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
-                      style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid var(--border)', outline: 'none', fontSize: '13px' }}
+                      style={inputStyle}
                       placeholder="e.g. Vijay Nagar, Indore"
                     />
                   </div>
@@ -441,6 +514,16 @@ export default function Settings() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        .settings-main-grid {
+          display: grid;
+          grid-template-columns: 320px 1fr;
+          gap: 30px;
+        }
+        @media (max-width: 1024px) {
+          .settings-main-grid {
+            grid-template-columns: 1fr;
+          }
         }
       `}</style>
     </div>

@@ -2,7 +2,7 @@
  * Global Configuration for API Networking
  */
 
-export const BASE_URL = 'http://139.59.1.109:5000';
+export const BASE_URL = 'https://trackifybackend.inurum.com';
 
 // Example utility function for future authenticated requests
 export const getAuthHeaders = (token) => ({

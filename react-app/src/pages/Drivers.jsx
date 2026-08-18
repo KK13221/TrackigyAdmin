@@ -68,7 +68,7 @@ export default function Drivers() {
           <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
             Fleet &gt; <span style={{ color: 'var(--primary)' }}>Drivers</span>
           </span>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginTop: 8, marginBottom: 4 }}>Driver Directory</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-main)', marginTop: 8, marginBottom: 4 }}>Driver Directory</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             Manage 124 active personnel and real-time availability across 3 regions.
           </p>
@@ -99,7 +99,7 @@ export default function Drivers() {
 
         {/* Add New Driver Card */}
         <div style={{
-          background: '#f8fafc',
+          background: 'var(--bg-main)',
           border: '2px dashed #cbd5e1',
           borderRadius: 16,
           display: 'flex',
@@ -112,7 +112,7 @@ export default function Drivers() {
           <div style={{
             width: 48,
             height: 48,
-            background: 'white',
+            background: 'var(--bg-sidebar)',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../utils/network';
+import Swal from 'sweetalert2';
 
 export default function VehicleRefuel() {
   const [logs, setLogs] = useState([]);
@@ -34,12 +35,16 @@ export default function VehicleRefuel() {
 
       // 2. Fetch fleet vehicles
       const userId = localStorage.getItem('userId');
-      const resVehicles = await fetch(`${BASE_URL}/api/vehicle/get-vehicles?userId=${userId}`);
+      const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      const isUserAdmin = ['admin', 'superadmin'].includes((savedUser.role || '').toLowerCase());
+      const targetUrl = isUserAdmin
+        ? `${BASE_URL}/api/vehicle/get-vehicles-list`
+        : `${BASE_URL}/api/vehicle/get-vehicles?userId=${userId}`;
+      const resVehicles = await fetch(targetUrl);
       if (resVehicles.ok) {
         const data = await resVehicles.json();
-        if (data && Array.isArray(data.vehicles)) {
-          setVehicles(data.vehicles);
-        }
+        const list = data.vehicles || data.data || (Array.isArray(data) ? data : []);
+        setVehicles(list);
       }
     } catch (err) {
       console.error('Error fetching refuel data:', err);
@@ -52,12 +57,12 @@ export default function VehicleRefuel() {
     loadData();
   }, []);
 
-  // Sync price per liter and fuel amount to calculate totalCost automatically
+  // Sync price per liter and fuel amount to calculate totalAmount automatically
   useEffect(() => {
     const calculated = Number(formData.fuelAmount) * Number(formData.pricePerLiter);
     setFormData(prev => ({
       ...prev,
-      totalCost: isNaN(calculated) ? 0 : Number(calculated.toFixed(2))
+      totalAmount: isNaN(calculated) ? 0 : Number(calculated.toFixed(2))
     }));
   }, [formData.fuelAmount, formData.pricePerLiter]);
 
@@ -66,11 +71,14 @@ export default function VehicleRefuel() {
     setActionLoading(true);
     try {
       const payload = {
-        imei: formData.imei,
-        fuelAmount: Number(formData.fuelAmount),
+        vehicleId: formData.vehicleId,
+        refuelDate: formData.refuelDate,
+        refuelTime: formData.refuelTime,
+        currentOdometer: Number(formData.currentOdometer),
+        totalAmount: Number(formData.totalAmount),
         pricePerLiter: Number(formData.pricePerLiter),
-        totalCost: Number(formData.totalCost),
-        currentOdometer: Number(formData.currentOdometer)
+        tankStatus: Number(formData.tankStatus),
+        fuelBeforeRefuel: Number(formData.fuelBeforeRefuel)
       };
 
       const res = await fetch(`${BASE_URL}/api/vehicle-refuel/create`, {
@@ -83,32 +91,37 @@ export default function VehicleRefuel() {
       });
 
       if (res.ok) {
-        alert('Refuel log entry recorded successfully!');
+        Swal.fire('Refuel log entry recorded successfully!');
         setIsModalOpen(false);
         setFormData({
-          imei: '',
+          vehicleId: '',
           fuelAmount: 40,
           pricePerLiter: 102.50,
-          totalCost: 4100,
-          currentOdometer: 12000
+          totalAmount: 4100,
+          currentOdometer: 12000,
+          refuelDate: new Date().toISOString().split('T')[0],
+          refuelTime: new Date().toTimeString().slice(0, 5),
+          tankStatus: 1,
+          fuelBeforeRefuel: 0
         });
         loadData();
       } else {
-        alert('Failed to save refuel log entry.');
+        Swal.fire('Failed to save refuel log entry.');
       }
     } catch (err) {
       console.error(err);
-      alert('Error saving refuel log entry.');
+      Swal.fire('Error saving refuel log entry.');
     } finally {
       setActionLoading(false);
     }
   };
 
   const filteredLogs = Array.isArray(logs) ? logs.filter(l => {
+    const veh = Array.isArray(vehicles) ? vehicles.find(v => v._id === l.vehicleId) : null;
+    if (!veh) return false; // Only show logs for vehicles the user has access to
+    
     const query = searchTerm.toLowerCase();
-    const veh = Array.isArray(vehicles) ? (vehicles.find(v => v.imei === l.imei) || {}) : {};
     return (
-      l.imei?.toLowerCase().includes(query) ||
       veh.vehicleNumber?.toLowerCase().includes(query) ||
       veh.vehicleMaker?.toLowerCase().includes(query)
     );
@@ -116,27 +129,31 @@ export default function VehicleRefuel() {
 
   return (
     <div className="fade-in" style={{ padding: '0 4px', minHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-      
+
       {/* Header section */}
       <div className="page-header" style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Fuel Refuel Logging Console</h1>
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4 }}>Fuel Refuel Logging Console</h1>
           <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
             Monitor and record vehicle gas recharges, evaluate expenses, and assess general mileage efficiency across active transit units.
           </p>
         </div>
-        <button 
+        <button
           onClick={() => {
             setIsModalOpen(true);
             setFormData({
-              imei: '',
+              vehicleId: '',
               fuelAmount: 40,
               pricePerLiter: 102.50,
-              totalCost: 4100,
-              currentOdometer: 12000
+              totalAmount: 4100,
+              currentOdometer: 12000,
+              refuelDate: new Date().toISOString().split('T')[0],
+              refuelTime: new Date().toTimeString().slice(0, 5),
+              tankStatus: 1,
+              fuelBeforeRefuel: 0
             });
           }}
-          className="btn-primary" 
+          className="btn-primary"
           style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42 }}
         >
           <span className="material-icons">local_gas_station</span>
@@ -146,7 +163,7 @@ export default function VehicleRefuel() {
 
       {/* Main card grid */}
       <div className="card" style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        
+
         {/* Search header row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ position: 'relative', width: 300 }}>
@@ -155,7 +172,7 @@ export default function VehicleRefuel() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by IMEI, Vehicle No..."
+              placeholder="Search by Vehicle No, Maker..."
               style={{
                 width: '100%',
                 padding: '10px 12px 10px 40px',
@@ -192,7 +209,7 @@ export default function VehicleRefuel() {
               <tbody>
                 {filteredLogs.length > 0 ? (
                   filteredLogs.map((log) => {
-                    const matchedVeh = vehicles.find(v => v.imei === log.imei) || {};
+                    const matchedVeh = vehicles.find(v => v._id === log.vehicleId) || {};
                     return (
                       <tr key={log._id || log.createdAt} style={{ borderBottom: '1px solid var(--border)', fontSize: 13 }}>
                         <td style={{ padding: '14px 16px' }}>
@@ -205,7 +222,7 @@ export default function VehicleRefuel() {
                                 {matchedVeh.vehicleMaker || 'Asset'} {matchedVeh.vehicleModel || ''}
                               </div>
                               <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>
-                                IMEI: {log.imei}
+                                {matchedVeh.vehicleNumber}
                               </div>
                             </div>
                           </div>
@@ -221,7 +238,7 @@ export default function VehicleRefuel() {
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           <span style={{ fontSize: 14, fontWeight: 800, color: '#10b981' }}>
-                            ₹{log.totalCost}
+                            ₹{log.totalAmount}
                           </span>
                         </td>
                         <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
@@ -259,7 +276,7 @@ export default function VehicleRefuel() {
           zIndex: 9999
         }}>
           <div className="card" style={{ width: 420, padding: '24px', position: 'relative', borderRadius: 20, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <button 
+            <button
               onClick={() => setIsModalOpen(false)}
               style={{ position: 'absolute', top: 16, right: 16, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
@@ -277,18 +294,18 @@ export default function VehicleRefuel() {
             <form onSubmit={handleCreateLog} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Vehicle IMEI <strong style={{ color: 'red' }}>*</strong>
+                  Vehicle <strong style={{ color: 'red' }}>*</strong>
                 </label>
                 <select
-                  value={formData.imei}
+                  value={formData.vehicleId}
                   required
-                  onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white' }}
+                  onChange={(e) => setFormData(prev => ({ ...prev, vehicleId: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)' }}
                 >
                   <option value="">-- Choose matching vehicle --</option>
                   {vehicles.map(v => (
-                    <option key={v._id} value={v.imei}>
-                      {v.vehicleMaker} {v.vehicleModel} - {v.vehicleNumber} ({v.imei})
+                    <option key={v._id} value={v._id}>
+                      {v.vehicleMaker} {v.vehicleModel} - {v.vehicleNumber}
                     </option>
                   ))}
                 </select>
@@ -305,7 +322,7 @@ export default function VehicleRefuel() {
                     value={formData.fuelAmount}
                     onChange={(e) => setFormData(prev => ({ ...prev, fuelAmount: e.target.value }))}
                     placeholder="e.g. 40"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none' }}
                   />
                 </div>
                 <div>
@@ -319,7 +336,7 @@ export default function VehicleRefuel() {
                     value={formData.pricePerLiter}
                     onChange={(e) => setFormData(prev => ({ ...prev, pricePerLiter: e.target.value }))}
                     placeholder="e.g. 102.50"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none' }}
                   />
                 </div>
               </div>
@@ -335,35 +352,35 @@ export default function VehicleRefuel() {
                     value={formData.currentOdometer}
                     onChange={(e) => setFormData(prev => ({ ...prev, currentOdometer: e.target.value }))}
                     placeholder="e.g. 12000"
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none' }}
                   />
                 </div>
                 <div>
                   <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
-                    Total Cost Calculated (₹)
+                    Total Amount Calculated (₹)
                   </label>
                   <input
                     type="number"
                     disabled
-                    value={formData.totalCost}
+                    value={formData.totalAmount}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: '#f1f5f9', cursor: 'not-allowed', fontWeight: 'bold' }}
                   />
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="btn-secondary" 
+                  className="btn-secondary"
                   style={{ flex: 1 }}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={actionLoading}
-                  className="btn-primary" 
+                  className="btn-primary"
                   style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
                   {actionLoading ? 'Saving Log...' : 'Record Log'}

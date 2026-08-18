@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../utils/network';
+import MetricCard from '../components/MetricCard';
+import Swal from 'sweetalert2';
 
 export default function VehicleControl() {
   const [controls, setControls] = useState([]);
@@ -9,11 +11,11 @@ export default function VehicleControl() {
 
   // Creation modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingImei, setEditingImei] = useState(null); // If editing a profile
+  const [editingVehicleId, setEditingVehicleId] = useState(null); // If editing a profile
   const [selectedFile, setSelectedFile] = useState(null);
   
   const [formData, setFormData] = useState({
-    imei: '',
+    vehicleId: '',
     tankCapacity: 60,
     vehicleMileage: 12.5,
     vehicleLock: 'false',
@@ -98,32 +100,63 @@ export default function VehicleControl() {
     };
   }, []);
 
-  // Engine lock toggle switch with optimistic UI updates
-  const handleToggleLock = async (imei, currentLockState) => {
-    setActionLoading(true);
-    
-    // Optimistic state updates for smooth premium feel
-    const updatedState = currentLockState === 'true' ? 'false' : 'true';
-    setControls(prev => prev.map(c => c.imei === imei ? { ...c, vehicleLock: updatedState } : c));
+  // Engine lock toggle switch with confirmation dialog
+  const handleToggleLock = async (vehicleId, currentLockState) => {
+    const isCurrentlyLocked = currentLockState === 'true' || currentLockState === true;
+    const actionLabel = isCurrentlyLocked ? 'Unlock Engine' : 'Kill Engine';
+    const actionIcon = isCurrentlyLocked ? 'lock_open' : 'power_off';
+    const confirmColor = isCurrentlyLocked ? '#10b981' : '#ef4444';
 
+    // Show Yes/No confirmation before executing engine command
+    const result = await Swal.fire({
+      title: `${actionLabel}?`,
+      html: `<div style="font-size:14px;color:#64748b;margin-top:4px;">
+        Are you sure you want to <strong style="color:${confirmColor}">${actionLabel}</strong> for this vehicle?<br/>
+        <span style="font-size:12px;margin-top:6px;display:block;color:#94a3b8;">Vehicle ID: <code>${vehicleId}</code></span>
+      </div>`,
+      icon: isCurrentlyLocked ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonText: '✅ Yes, Proceed',
+      cancelButtonText: '❌ No, Cancel',
+      confirmButtonColor: confirmColor,
+      cancelButtonColor: '#94a3b8',
+      reverseButtons: true,
+      focusCancel: true,
+      customClass: {
+        popup: 'swal-custom-popup',
+        title: 'swal-custom-title',
+      }
+    });
+
+    // If user did not confirm, do nothing
+    if (!result.isConfirmed) return;
+
+    setActionLoading(true);
+
+    // Optimistic state updates for smooth premium feel
+    const updatedState = isCurrentlyLocked ? 'false' : 'true';
+    setControls(prev => prev.map(c => c.vehicleId === vehicleId ? { ...c, vehicleLock: updatedState } : c));
+    
     try {
-      const res = await fetch(`${BASE_URL}/api/vehicle-control/lock-unlock/${imei}`, {
+      const res = await fetch(`${BASE_URL}/api/vehicle-control/lock-unlock/${vehicleId}`, {
         method: 'PUT',
         headers: {
           'accept': 'application/json'
         }
       });
-      
+
       if (!res.ok) {
         // Revert on failure
-        setControls(prev => prev.map(c => c.imei === imei ? { ...c, vehicleLock: currentLockState } : c));
-        alert('Failed to transmit toggle command to engine immobilizer relay.');
+        setControls(prev => prev.map(c => c.vehicleId === vehicleId ? { ...c, vehicleLock: currentLockState } : c));
+        Swal.fire({ icon: 'error', title: 'Command Failed', text: 'Failed to transmit toggle command to engine immobilizer relay.' });
+      } else {
+        Swal.fire({ icon: 'success', title: `${actionLabel} Successful`, text: `Engine command has been executed successfully.`, timer: 2000, showConfirmButton: false });
       }
     } catch (err) {
       console.error(err);
       // Revert on failure
-      setControls(prev => prev.map(c => c.imei === imei ? { ...c, vehicleLock: currentLockState } : c));
-      alert('Network timeout connecting to vehicle relay gateway.');
+      setControls(prev => prev.map(c => c.vehicleId === vehicleId ? { ...c, vehicleLock: currentLockState } : c));
+      Swal.fire({ icon: 'error', title: 'Network Error', text: 'Network timeout connecting to vehicle relay gateway.' });
     } finally {
       setActionLoading(false);
     }
@@ -136,22 +169,22 @@ export default function VehicleControl() {
 
     try {
       const dataPayload = new FormData();
-      dataPayload.append('imei', formData.imei);
+      dataPayload.append('vehicleId', formData.vehicleId);
       dataPayload.append('tankCapacity', Number(formData.tankCapacity));
       dataPayload.append('vehicleMileage', Number(formData.vehicleMileage));
       dataPayload.append('vehicleLock', formData.vehicleLock);
       dataPayload.append('vehicleIcon', formData.vehicleIcon);
       dataPayload.append('vehicleColor', formData.vehicleColor);
-      
+
       if (selectedFile) {
         dataPayload.append('vehicleImage', selectedFile);
       }
 
-      const url = editingImei 
-        ? `${BASE_URL}/api/vehicle-control/update/${editingImei}`
+      const url = editingVehicleId
+        ? `${BASE_URL}/api/vehicle-control/update/${editingVehicleId}`
         : `${BASE_URL}/api/vehicle-control/create`;
-      
-      const method = editingImei ? 'PUT' : 'POST';
+
+      const method = editingVehicleId ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
         method: method,
@@ -159,10 +192,10 @@ export default function VehicleControl() {
       });
 
       if (res.ok) {
-        alert(editingImei ? 'Vehicle Control specifications updated successfully!' : 'Vehicle Control specifications saved successfully!');
+        Swal.fire(editingVehicleId ? 'Vehicle Control specifications updated successfully!' : 'Vehicle Control specifications saved successfully!');
         setIsModalOpen(false);
         setFormData({
-          imei: '',
+          vehicleId: '',
           tankCapacity: 60,
           vehicleMileage: 12.5,
           vehicleLock: 'false',
@@ -170,7 +203,7 @@ export default function VehicleControl() {
           vehicleColor: '#2463eb'
         });
         setSelectedFile(null);
-        setEditingImei(null);
+        setEditingVehicleId(null);
         loadData();
       } else {
         const errJson = await res.json();
@@ -186,21 +219,22 @@ export default function VehicleControl() {
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    setEditingImei(null);
+    setEditingVehicleId(null);
     setSelectedFile(null);
   };
 
   const handleEditClick = async (controlItem) => {
-    setEditingImei(controlItem.imei);
+    const vId = controlItem.vehicleId || controlItem._id;
+    setEditingVehicleId(vId);
     setIsModalOpen(true);
     setActionLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/vehicle-control/${controlItem.imei}`);
+      const res = await fetch(`${BASE_URL}/api/vehicle-control/${vId}`);
       if (res.ok) {
         const data = await res.json();
         const details = data.data || data.result || data || {};
         setFormData({
-          imei: details.imei || controlItem.imei,
+          vehicleId: details.vehicleId || vId,
           tankCapacity: details.tankCapacity !== undefined ? details.tankCapacity : (controlItem.tankCapacity || 60),
           vehicleMileage: details.vehicleMileage !== undefined ? details.vehicleMileage : (controlItem.vehicleMileage || 12.5),
           vehicleLock: details.vehicleLock !== undefined ? String(details.vehicleLock) : String(controlItem.vehicleLock),
@@ -210,7 +244,7 @@ export default function VehicleControl() {
       } else {
         // Fallback
         setFormData({
-          imei: controlItem.imei,
+          vehicleId: vId,
           tankCapacity: controlItem.tankCapacity,
           vehicleMileage: controlItem.vehicleMileage,
           vehicleLock: String(controlItem.vehicleLock),
@@ -222,7 +256,7 @@ export default function VehicleControl() {
       console.error(err);
       // Fallback
       setFormData({
-        imei: controlItem.imei,
+        vehicleId: vId,
         tankCapacity: controlItem.tankCapacity,
         vehicleMileage: controlItem.vehicleMileage,
         vehicleLock: String(controlItem.vehicleLock),
@@ -234,10 +268,10 @@ export default function VehicleControl() {
     }
   };
 
-  const handleShowImeiDetails = async (imei) => {
+  const handleShowImeiDetails = async (vehicleId) => {
     setActionLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/vehicle-control/${imei}`);
+      const res = await fetch(`${BASE_URL}/api/vehicle-control/${vehicleId}`);
       if (res.ok) {
         const data = await res.json();
         if (data && data.data) {
@@ -248,29 +282,29 @@ export default function VehicleControl() {
           setIsDetailsModalOpen(true);
         }
       } else {
-        alert('Failed to retrieve device parameters.');
+        Swal.fire('Failed to retrieve device parameters.');
       }
     } catch (err) {
       console.error(err);
-      alert('Connection error retrieving specifications.');
+      Swal.fire('Connection error retrieving specifications.');
     } finally {
       setActionLoading(false);
     }
   };
 
   // Delete control profile
-  const handleDeleteProfile = async (imei) => {
+  const handleDeleteProfile = async (vehicleId) => {
     if (!confirm('Are you sure you want to reset and delete this vehicle control profile?')) return;
     setActionLoading(true);
     try {
-      const res = await fetch(`${BASE_URL}/api/vehicle-control/delete/${imei}`, {
+      const res = await fetch(`${BASE_URL}/api/vehicle-control/delete/${vehicleId}`, {
         method: 'DELETE'
       });
       if (res.ok) {
-        alert('Profile deleted successfully.');
+        Swal.fire('Profile deleted successfully.');
         loadData();
       } else {
-        alert('Failed to delete profile.');
+        Swal.fire('Failed to delete profile.');
       }
     } catch (err) {
       console.error(err);
@@ -290,9 +324,9 @@ export default function VehicleControl() {
 
   const filteredControls = Array.isArray(controls) ? controls.filter(c => {
     const query = searchTerm.toLowerCase();
-    const veh = c.vehicleDetails || (Array.isArray(vehicles) ? (vehicles.find(v => v.imei === c.imei) || {}) : {});
+    const veh = c.vehicleDetails || (Array.isArray(vehicles) ? (vehicles.find(v => v._id === c.vehicleId) || {}) : {});
     return (
-      c.imei?.toLowerCase().includes(query) ||
+      c.vehicleId?.toLowerCase().includes(query) ||
       veh.vehicleNumber?.toLowerCase().includes(query) ||
       veh.vehicleMaker?.toLowerCase().includes(query) ||
       veh.vehicleModel?.toLowerCase().includes(query)
@@ -308,19 +342,13 @@ export default function VehicleControl() {
     <div className="fade-in" style={{ padding: '0 4px', minHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
       
       {/* Header bar */}
-      <div className="page-header" style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Vehicle Immobilization Control</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            Monitor tank capacity, configure active fuel parameters, upload cover graphics and transmit live immobilizer engine lock relays.
-          </p>
-        </div>
-        <button 
+      <div className="page-header" style={{ marginTop: 8, marginBottom: 20, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <button
           onClick={() => {
-            setEditingImei(null);
+            setEditingVehicleId(null);
             setIsModalOpen(true);
             setFormData({
-              imei: '',
+              vehicleId: '',
               tankCapacity: 60,
               vehicleMileage: 12.5,
               vehicleLock: 'false',
@@ -329,59 +357,40 @@ export default function VehicleControl() {
             });
             setSelectedFile(null);
           }}
-          className="btn-primary" 
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42 }}
+          className="btn-primary"
+          style={{ display: 'inline-flex', flex: 'none', alignItems: 'center', gap: 6, height: 36, padding: '0 16px', fontSize: 13 }}
         >
-          <span className="material-icons">add_circle</span>
+          <span className="material-icons" style={{ fontSize: 18 }}>add_circle</span>
           Configure Specs
         </button>
       </div>
 
       {/* Dynamic Telemetry Stats Cards Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 16, marginBottom: 24 }}>
-        {/* Card 1: Registered Systems */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', border: '1px solid #bfdbfe', borderRadius: 16 }}>
-          <div style={{ background: 'var(--primary)', color: 'white', width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-icons" style={{ fontSize: 24 }}>settings_remote</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#1e3a8a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Controllers</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#1e3a8a', marginTop: 2 }}>{totalControllers}</div>
-          </div>
-        </div>
-
-        {/* Card 2: Active / Running Engines */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', background: 'linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%)', border: '1px solid #a7f3d0', borderRadius: 16 }}>
-          <div style={{ background: '#10b981', color: 'white', width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-icons" style={{ fontSize: 24 }}>power</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#064e3b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Active & Running</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#064e3b', marginTop: 2 }}>{activeControllers}</div>
-          </div>
-        </div>
-
-        {/* Card 3: Immobilized Relays */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)', border: '1px solid #fca5a5', borderRadius: 16 }}>
-          <div style={{ background: '#ef4444', color: 'white', width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-icons" style={{ fontSize: 24 }}>lock</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#7f1d1d', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Killed / Locked</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#7f1d1d', marginTop: 2 }}>{lockedControllers}</div>
-          </div>
-        </div>
-
-        {/* Card 4: Managed Fuel volume */}
-        <div className="card" style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '20px 24px', background: 'linear-gradient(135deg, #fdf8f2 0%, #fef3c7 100%)', border: '1px solid #fde68a', borderRadius: 16 }}>
-          <div style={{ background: '#f59e0b', color: 'white', width: 48, height: 48, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span className="material-icons" style={{ fontSize: 24 }}>local_gas_station</span>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: '#78350f', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5 }}>Capacity Managed</div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: '#78350f', marginTop: 2 }}>{totalFuelCapacity} <span style={{ fontSize: 16 }}>L</span></div>
-          </div>
-        </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '28px', marginTop: '8px' }}>
+        <MetricCard 
+          label="Controllers" 
+          value={totalControllers} 
+          colorClass="blue" 
+          icon="settings_remote" 
+        />
+        <MetricCard 
+          label="Active & Running" 
+          value={activeControllers} 
+          colorClass="green" 
+          icon="power" 
+        />
+        <MetricCard 
+          label="Killed / Locked" 
+          value={lockedControllers} 
+          colorClass="red" 
+          icon="lock" 
+        />
+        <MetricCard 
+          label="Capacity Managed" 
+          value={`${totalFuelCapacity} L`} 
+          colorClass="orange" 
+          icon="local_gas_station" 
+        />
       </div>
 
       {/* Main card panel */}
@@ -395,7 +404,7 @@ export default function VehicleControl() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by IMEI, Vehicle No..."
+              placeholder="Search by Vehicle ID, Vehicle No..."
               style={{
                 width: '100%',
                 padding: '10px 12px 10px 40px',
@@ -432,10 +441,10 @@ export default function VehicleControl() {
               <tbody>
                 {filteredControls.length > 0 ? (
                   filteredControls.map((control) => {
-                    const matchedVeh = control.vehicleDetails || (Array.isArray(vehicles) ? (vehicles.find(v => v.imei === control.imei) || {}) : {});
+                    const matchedVeh = control.vehicleDetails || (Array.isArray(vehicles) ? (vehicles.find(v => v._id === control.vehicleId) || {}) : {});
                     const isLocked = control.vehicleLock === 'true' || control.vehicleLock === true;
                     return (
-                      <tr key={control._id || control.imei} className="row-hover" style={{ borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                      <tr key={control._id || control.vehicleId} className="row-hover" style={{ borderBottom: '1px solid var(--border)', fontSize: 13 }}>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                             {/* Avatar Display picture */}
@@ -479,7 +488,7 @@ export default function VehicleControl() {
                           </div>
                         </td>
                         <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontWeight: 600, color: '#334155' }}>
-                          {control.imei}
+                          {control.vehicleId}
                         </td>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -514,7 +523,7 @@ export default function VehicleControl() {
 
                             {/* Toggle switch control button */}
                             <button
-                              onClick={() => handleToggleLock(control.imei, control.vehicleLock)}
+                              onClick={() => handleToggleLock(control.vehicleId, control.vehicleLock)}
                               disabled={actionLoading}
                               style={{
                                 border: 'none',
@@ -538,7 +547,7 @@ export default function VehicleControl() {
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
                           <div style={{ display: 'inline-flex', gap: 8 }}>
                             <button
-                              onClick={() => handleShowImeiDetails(control.imei)}
+                              onClick={() => handleShowImeiDetails(control.vehicleId)}
                               className="btn-secondary"
                               style={{ padding: '6px 10px', fontSize: 12, borderRadius: 8, color: 'var(--primary)', border: '1px solid var(--primary-light)' }}
                             >
@@ -552,7 +561,7 @@ export default function VehicleControl() {
                               Edit
                             </button>
                             <button
-                              onClick={() => handleDeleteProfile(control.imei)}
+                              onClick={() => handleDeleteProfile(control.vehicleId)}
                               className="btn-secondary"
                               style={{ padding: '6px 10px', fontSize: 12, borderRadius: 8, color: '#ef4444', border: '1px solid #ef444430' }}
                             >
@@ -601,7 +610,7 @@ export default function VehicleControl() {
 
             <h3 style={{ fontSize: 18, fontWeight: 800, color: 'var(--text-main)', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="material-icons" style={{ color: 'var(--primary)' }}>settings_remote</span>
-              {editingImei ? 'Edit Specs Configuration' : 'Configure Relay Specifications'}
+              {editingVehicleId ? 'Edit Specs Configuration' : 'Configure Relay Specifications'}
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: 12, marginBottom: 20 }}>
               Bind fuel tank capacity metrics and select display colors for active GPS vehicle markers.
@@ -611,25 +620,48 @@ export default function VehicleControl() {
               {/* IMEI dropdown list */}
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Device IMEI <strong style={{ color: 'red' }}>*</strong>
+                  Vehicle ID <strong style={{ color: 'red' }}>*</strong>
                 </label>
-                {editingImei ? (
+                {editingVehicleId ? (
                   <input
                     type="text"
                     disabled
-                    value={formData.imei}
+                    value={formData.vehicleId}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: '#f1f5f9', cursor: 'not-allowed', color: 'var(--text-muted)' }}
                   />
                 ) : (
                   <select
-                    value={formData.imei}
+                    value={formData.vehicleId}
                     required
-                    onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const existingControl = controls.find(c => c.vehicleId === selectedId);
+                      if (existingControl) {
+                        setFormData({
+                          vehicleId: selectedId,
+                          tankCapacity: existingControl.tankCapacity !== undefined ? existingControl.tankCapacity : 60,
+                          vehicleMileage: existingControl.vehicleMileage !== undefined ? existingControl.vehicleMileage : 12.5,
+                          vehicleLock: existingControl.vehicleLock !== undefined ? String(existingControl.vehicleLock) : 'false',
+                          vehicleIcon: existingControl.vehicleIcon || 'car',
+                          vehicleColor: existingControl.vehicleColor || '#2463eb'
+                        });
+                      } else {
+                        const veh = vehicles.find(v => v._id === selectedId) || {};
+                        setFormData({
+                          vehicleId: selectedId,
+                          tankCapacity: veh.tankCapacity !== undefined ? veh.tankCapacity : 60,
+                          vehicleMileage: veh.vehicleMileage !== undefined ? veh.vehicleMileage : 12.5,
+                          vehicleLock: 'false',
+                          vehicleIcon: 'car',
+                          vehicleColor: '#2463eb'
+                        });
+                      }
+                    }}
                     style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
                   >
-                    <option value="">-- Choose fleet vehicle imei --</option>
+                    <option value="">-- Choose fleet vehicle id --</option>
                     {vehicles.map(v => (
-                      <option key={v._id} value={v.imei}>
+                      <option key={v._id} value={v._id}>
                         {v.vehicleMaker} {v.vehicleModel} - {v.vehicleNumber} ({v.imei})
                       </option>
                     ))}
@@ -782,8 +814,8 @@ export default function VehicleControl() {
               {/* Data Table List Grid */}
               <div style={{ background: '#f8fafc', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--text-muted)' }}>Device IMEI:</span>
-                  <strong style={{ fontFamily: 'monospace' }}>{selectedImeiDetails.imei}</strong>
+                  <span style={{ color: 'var(--text-muted)' }}>Vehicle ID:</span>
+                  <strong style={{ fontFamily: 'monospace' }}>{selectedImeiDetails.vehicleId}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
                   <span style={{ color: 'var(--text-muted)' }}>Tank Capacity:</span>

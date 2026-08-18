@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BASE_URL } from '../utils/network';
+import TrackifyLoader from '../components/TrackifyLoader';
+import Swal from 'sweetalert2';
 
 export default function OverspeedAlerts({ user }) {
   const [alerts, setAlerts] = useState([]);
@@ -11,20 +13,23 @@ export default function OverspeedAlerts({ user }) {
   // Form states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
+    _id: '',
     imei: '',
-    speedLimit: 80,
-    notificationType: 'push' // push, SMS, email
+    alert_title: '',
+    speed_limit: 80,
+    duration: 10,
+    notificationType: 'push'
   });
 
   const loadData = async () => {
     setLoading(true);
     try {
       const savedUser = user || JSON.parse(localStorage.getItem('user') || '{}');
-      const isUserAdmin = (savedUser.role || '').toLowerCase() === 'admin';
+      const isUserAdmin = ['superadmin'].includes((savedUser.role || '').toLowerCase());
       const userId = savedUser.id || savedUser._id || localStorage.getItem('userId');
 
       // 1. Fetch fleet vehicles or all assigned devices
-      const targetUrl = isUserAdmin 
+      const targetUrl = isUserAdmin
         ? `${BASE_URL}/api/device/device-list`
         : `${BASE_URL}/api/vehicle/get-vehicles?userId=${userId}`;
 
@@ -59,32 +64,23 @@ export default function OverspeedAlerts({ user }) {
             const resAlert = await fetch(`${BASE_URL}/api/overspeed/get-overspeed/${vehicle.imei}`);
             if (resAlert.ok) {
               const alertData = await resAlert.json();
-              if (alertData && alertData.result) {
+              if (alertData && alertData.data && alertData.data.length > 0) {
+                const latestAlert = alertData.data[0];
+                alertsList.push({
+                  vehicle,
+                  speedLimit: latestAlert.speed_limit || latestAlert.speedLimit || latestAlert.maxSpeed || 80,
+                  _id: latestAlert._id
+                });
+              } else if (alertData && alertData.result) {
                 alertsList.push({
                   vehicle,
                   speedLimit: alertData.result.speedLimit || alertData.result.maxSpeed || 80,
                   _id: alertData.result._id
                 });
-              } else {
-                alertsList.push({
-                  vehicle,
-                  speedLimit: null,
-                  _id: null
-                });
               }
-            } else {
-              alertsList.push({
-                vehicle,
-                speedLimit: null,
-                _id: null
-              });
             }
           } catch (e) {
-            alertsList.push({
-              vehicle,
-              speedLimit: null,
-              _id: null
-            });
+            console.error(e);
           }
         }
         setAlerts(alertsList);
@@ -106,12 +102,19 @@ export default function OverspeedAlerts({ user }) {
     try {
       const payload = {
         imei: formData.imei,
-        speedLimit: Number(formData.speedLimit),
+        alert_title: formData.alert_title,
+        speed_limit: Number(formData.speed_limit),
+        duration: Number(formData.duration),
         notificationType: formData.notificationType
       };
 
-      const res = await fetch(`${BASE_URL}/api/overspeed/create-alert`, {
-        method: 'POST',
+      const isEdit = !!formData._id;
+      const apiUrl = isEdit 
+        ? `${BASE_URL}/api/overspeed/update-alert/${formData._id}`
+        : `${BASE_URL}/api/overspeed/create-alert`;
+
+      const res = await fetch(apiUrl, {
+        method: isEdit ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
           'accept': '*/*'
@@ -119,23 +122,56 @@ export default function OverspeedAlerts({ user }) {
         body: JSON.stringify(payload)
       });
 
-      if (res.ok) {
-        alert('Overspeed limit configuration updated successfully!');
+      const resData = await res.json().catch(() => ({}));
+
+      if (res.ok && resData.status !== false) {
+        Swal.fire(`Overspeed alert ${isEdit ? 'updated' : 'configured'} successfully!`);
         setIsModalOpen(false);
-        setFormData({
-          imei: '',
-          speedLimit: 80,
-          notificationType: 'push'
-        });
+        setFormData({ _id: '', imei: '', alert_title: '', speed_limit: 80, duration: 10, notificationType: 'push' });
         loadData();
       } else {
-        alert('Failed to transmit safety threshold specifications.');
+        Swal.fire(resData.message || `Failed to ${isEdit ? 'update' : 'save'} overspeed alert.`);
       }
     } catch (err) {
       console.error(err);
-      alert('Error updating overspeed limit threshold.');
+      Swal.fire('Error saving overspeed alert.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleDeleteAlert = async (alertId) => {
+    if (!alertId) {
+      Swal.fire('No overspeed alert limit is currently set for this vehicle.');
+      return;
+    }
+    
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'Are you sure you want to remove this overspeed alert limit?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, proceed!'
+    });
+    if (!result.isConfirmed) return;
+    
+    try {
+      const res = await fetch(`${BASE_URL}/api/overspeed/delete-alert/${alertId}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json().catch(() => ({}));
+      
+      if (res.ok || data.status) {
+        Swal.fire('Overspeed limit removed successfully!');
+        loadData();
+      } else {
+        Swal.fire(data.message || 'Failed to remove overspeed limit.');
+      }
+    } catch (err) {
+      console.error('Error deleting overspeed alert:', err);
+      Swal.fire('Error occurred while removing limit.');
     }
   };
 
@@ -151,35 +187,25 @@ export default function OverspeedAlerts({ user }) {
 
   return (
     <div className="fade-in" style={{ padding: '0 4px', minHeight: 'calc(100vh - 100px)', display: 'flex', flexDirection: 'column' }}>
-      
+
       {/* Header block */}
-      <div className="page-header" style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontSize: 28, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>Velocity & Overspeed Safeguard</h1>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-            Control safety speed margins, configure push notifications and trigger dispatch flags whenever fleet assets exceed road boundaries.
-          </p>
-        </div>
-        <button 
+      <div className="page-header" style={{ marginTop: 8, marginBottom: 20, display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+        <button
           onClick={() => {
             setIsModalOpen(true);
-            setFormData({
-              imei: '',
-              speedLimit: 80,
-              notificationType: 'push'
-            });
+            setFormData({ _id: '', imei: '', alert_title: '', speed_limit: 80, duration: 10, notificationType: 'push' });
           }}
-          className="btn-primary" 
-          style={{ display: 'flex', alignItems: 'center', gap: 8, height: 42 }}
+          className="btn-primary"
+          style={{ display: 'inline-flex', flex: 'none', alignItems: 'center', gap: 6, height: 36, padding: '0 16px', fontSize: 13 }}
         >
-          <span className="material-icons">speed</span>
+          <span className="material-icons" style={{ fontSize: 18 }}>speed</span>
           Configure Limit
         </button>
       </div>
 
       {/* Main card grid */}
       <div className="card" style={{ padding: 20, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        
+
         {/* Actions header row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div style={{ position: 'relative', width: 300 }}>
@@ -205,9 +231,8 @@ export default function OverspeedAlerts({ user }) {
         </div>
 
         {loading ? (
-          <div style={{ padding: '60px 0', textAlign: 'center', color: 'var(--text-muted)', margin: 'auto' }}>
-            <div className="spinner" style={{ margin: '0 auto 16px auto' }}></div>
-            <span>Fetching overspeed parameters...</span>
+          <div style={{ padding: '60px 0', display: 'flex', justifyContent: 'center' }}>
+            <TrackifyLoader size={200} animated={true} message="Fetching overspeed parameters..." showPercentage={true} />
           </div>
         ) : (
           <div style={{ overflowX: 'auto', flex: 1 }}>
@@ -229,14 +254,14 @@ export default function OverspeedAlerts({ user }) {
                       <tr key={a.vehicle?.imei} style={{ borderBottom: '1px solid var(--border)', fontSize: 13 }}>
                         <td style={{ padding: '14px 16px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <div 
-                              style={{ 
-                                width: 36, 
-                                height: 36, 
-                                borderRadius: 8, 
-                                background: hasLimit ? '#e0f2fe' : '#f1f5f9', 
-                                display: 'flex', 
-                                alignItems: 'center', 
+                            <div
+                              style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 8,
+                                background: hasLimit ? '#e0f2fe' : '#f1f5f9',
+                                display: 'flex',
+                                alignItems: 'center',
                                 justifyContent: 'center',
                                 color: hasLimit ? 'var(--primary)' : 'var(--text-muted)'
                               }}
@@ -264,12 +289,12 @@ export default function OverspeedAlerts({ user }) {
                           )}
                         </td>
                         <td style={{ padding: '14px 16px' }}>
-                          <span 
+                          <span
                             style={{
                               fontSize: 10,
                               fontWeight: 800,
                               textTransform: 'uppercase',
-                              color: hasLimit ? '#10b981' : '#64748b',
+                              color: hasLimit ? '#10b981' : 'var(--text-muted)',
                               background: hasLimit ? '#10b98115' : '#64748b15',
                               padding: '4px 8px',
                               borderRadius: 6
@@ -279,20 +304,37 @@ export default function OverspeedAlerts({ user }) {
                           </span>
                         </td>
                         <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                          <button
-                            onClick={() => {
-                              setFormData({
-                                imei: a.vehicle?.imei,
-                                speedLimit: a.speedLimit || 80,
-                                notificationType: 'push'
-                              });
-                              setIsModalOpen(true);
-                            }}
-                            className="btn-secondary"
-                            style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8 }}
-                          >
-                            Configure
-                          </button>
+                          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <button
+                              onClick={() => handleDeleteAlert(a._id)}
+                              className="btn-danger"
+                              style={{
+                                background: '#ef4444', color: 'white', border: 'none', padding: '6px 12px',
+                                fontSize: 12, borderRadius: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4
+                              }}
+                            >
+                              <span className="material-icons" style={{ fontSize: 14 }}>delete</span>
+                              Remove
+                            </button>
+                            <button
+                              onClick={() => {
+                                setFormData({
+                                  _id: a._id,
+                                  imei: a.vehicle?.imei,
+                                  alert_title: 'Overspeed Alert',
+                                  speed_limit: a.speedLimit || 80,
+                                  duration: 10,
+                                  notificationType: 'push'
+                                });
+                                setIsModalOpen(true);
+                              }}
+                              className="btn-secondary"
+                              style={{ padding: '6px 12px', fontSize: 12, borderRadius: 8, display: 'flex', alignItems: 'center', gap: 4 }}
+                            >
+                              <span className="material-icons" style={{ fontSize: 14 }}>edit</span>
+                              Edit
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -326,7 +368,7 @@ export default function OverspeedAlerts({ user }) {
           zIndex: 9999
         }}>
           <div className="card" style={{ width: 420, padding: '24px', position: 'relative', borderRadius: 20, boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}>
-            <button 
+            <button
               onClick={() => setIsModalOpen(false)}
               style={{ position: 'absolute', top: 16, right: 16, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text-muted)' }}
             >
@@ -342,6 +384,7 @@ export default function OverspeedAlerts({ user }) {
             </p>
 
             <form onSubmit={handleSaveAlert} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* IMEI */}
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
                   Fleet Vehicle IMEI <strong style={{ color: 'red' }}>*</strong>
@@ -350,7 +393,7 @@ export default function OverspeedAlerts({ user }) {
                   value={formData.imei}
                   required
                   onChange={(e) => setFormData(prev => ({ ...prev, imei: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white' }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)' }}
                 >
                   <option value="">-- Select fleet vehicle --</option>
                   {vehicles.map(v => {
@@ -366,28 +409,62 @@ export default function OverspeedAlerts({ user }) {
                 </select>
               </div>
 
+              {/* Alert Title */}
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Speed Threshold (km/h) <strong style={{ color: 'red' }}>*</strong>
+                  Alert Title <strong style={{ color: 'red' }}>*</strong>
                 </label>
                 <input
-                  type="number"
+                  type="text"
                   required
-                  value={formData.speedLimit}
-                  onChange={(e) => setFormData(prev => ({ ...prev, speedLimit: e.target.value }))}
-                  placeholder="e.g. 80"
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white', outline: 'none' }}
+                  value={formData.alert_title}
+                  onChange={(e) => setFormData(prev => ({ ...prev, alert_title: e.target.value }))}
+                  placeholder="e.g. Highway Speed Alert"
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none' }}
                 />
               </div>
 
+              {/* Speed Limit + Duration in a row */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
+                    Speed Limit (km/h) <strong style={{ color: 'red' }}>*</strong>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={formData.speed_limit}
+                    onChange={(e) => setFormData(prev => ({ ...prev, speed_limit: e.target.value }))}
+                    placeholder="e.g. 80"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
+                    Duration (seconds) <strong style={{ color: 'red' }}>*</strong>
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    min={1}
+                    value={formData.duration}
+                    onChange={(e) => setFormData(prev => ({ ...prev, duration: e.target.value }))}
+                    placeholder="e.g. 10"
+                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)', outline: 'none', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              {/* Notification Channel */}
               <div>
                 <label style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 4 }}>
-                  Notification Dispatch Channel
+                  Notification Channel
                 </label>
                 <select
                   value={formData.notificationType}
                   onChange={(e) => setFormData(prev => ({ ...prev, notificationType: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'white' }}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, background: 'var(--bg-sidebar)' }}
                 >
                   <option value="push">⚡ Push Notification (App)</option>
                   <option value="sms">📱 SMS Text Dispatch</option>
@@ -396,18 +473,18 @@ export default function OverspeedAlerts({ user }) {
               </div>
 
               <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="btn-secondary" 
+                  className="btn-secondary"
                   style={{ flex: 1 }}
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   disabled={actionLoading}
-                  className="btn-primary" 
+                  className="btn-primary"
                   style={{ flex: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
                 >
                   {actionLoading ? 'Updating Limit...' : 'Save Configuration'}
