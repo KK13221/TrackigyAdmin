@@ -6,7 +6,7 @@ import TrackifyLoader from '../components/TrackifyLoader';
 import Swal from 'sweetalert2';
 
 
-function VehicleRow({ v, sno, onDelete, onOpenRefuelLogs, onToggleStatus, isSelected, onToggleSelect }) {
+function VehicleRow({ v, sno, onDelete, onOpenRefuelLogs, onToggleStatus, isSelected, onToggleSelect, isLastRows, onCutPower, onRestorePower }) {
   const [showMenu, setShowMenu] = useState(false);
 
   const isToday = (dateString) => {
@@ -133,7 +133,8 @@ function VehicleRow({ v, sno, onDelete, onOpenRefuelLogs, onToggleStatus, isSele
             style={{
               position: 'absolute',
               right: 24,
-              top: '80%',
+              top: isLastRows ? 'auto' : '80%',
+              bottom: isLastRows ? '80%' : 'auto',
               background: 'var(--bg-sidebar)',
               boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1)',
               borderRadius: 12,
@@ -167,7 +168,7 @@ function VehicleRow({ v, sno, onDelete, onOpenRefuelLogs, onToggleStatus, isSele
               onClick={() => {
                 if (v.imei) {
                   setShowMenu(false);
-                  window.location.href = `/${v.imei}`;
+                  window.open(`/${v.imei}`, '_blank');
                 }
               }}
               onMouseEnter={(e) => { if (v.imei) e.currentTarget.style.background = 'var(--primary-light)'; }}
@@ -223,7 +224,57 @@ function VehicleRow({ v, sno, onDelete, onOpenRefuelLogs, onToggleStatus, isSele
               {v.statusText === 'Active' ? 'Deactivate' : 'Activate'}
             </button>
 
-
+            {v.imei && (
+              <>
+                <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+                <button
+                  style={{
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: '#ef4444',
+                    background: 'none',
+                    border: 'none',
+                    width: '100%',
+                    borderRadius: 8,
+                    textAlign: 'left',
+                    transition: 'background 0.2s'
+                  }}
+                  onClick={() => { setShowMenu(false); onCutPower(v.imei); }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <span className="material-icons" style={{ fontSize: 16 }}>bolt</span> Cut Power
+                </button>
+                <button
+                  style={{
+                    padding: '10px 12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    cursor: 'pointer',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: '#10b981',
+                    background: 'none',
+                    border: 'none',
+                    width: '100%',
+                    borderRadius: 8,
+                    textAlign: 'left',
+                    transition: 'background 0.2s'
+                  }}
+                  onClick={() => { setShowMenu(false); onRestorePower(v.imei); }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                >
+                  <span className="material-icons" style={{ fontSize: 16 }}>settings_backup_restore</span> Restore Power
+                </button>
+              </>
+            )}
 
             <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
             <button
@@ -579,6 +630,36 @@ export default function Vehicles({ user }) {
     }
   };
 
+  const commandDevice = async (imei, action, actionLabel) => {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `Are you sure you want to ${actionLabel} for IMEI ${imei}?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: `Yes, ${actionLabel}!`
+    });
+    if (!result.isConfirmed) return;
+
+    try {
+      const response = await fetch(`${BASE_URL}/api/command-center/control/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imei })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Swal.fire(data.message || `${actionLabel} command sent successfully!`);
+      } else {
+        Swal.fire("Failed to send command: " + (data.error || ""));
+      }
+    } catch (err) {
+      console.error(err);
+      Swal.fire("Network error while communicating with Command Center.");
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', minHeight: '60vh' }}>
@@ -688,7 +769,7 @@ export default function Vehicles({ user }) {
       </div>
 
       {/* Table */}
-      <div className="card" style={{ padding: 0, marginBottom: 24, overflowX: 'auto' }}>
+      <div className="card" style={{ padding: 0, marginBottom: 24, overflowX: 'auto', minHeight: '320px' }}>
         <table className="vehicle-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
           <thead>
             <tr style={{ textAlign: 'left' }}>
@@ -722,6 +803,9 @@ export default function Vehicles({ user }) {
                   onToggleStatus={handleToggleStatus}
                   isSelected={selectedVehicles.includes(v._id)}
                   onToggleSelect={(id) => setSelectedVehicles(prev => prev.includes(id) ? prev.filter(vid => vid !== id) : [...prev, id])}
+                  isLastRows={currentVehicles.length > 5 && idx >= currentVehicles.length - 3}
+                  onCutPower={(imei) => commandDevice(imei, 'cut-power', 'Cut Power')}
+                  onRestorePower={(imei) => commandDevice(imei, 'restore-power', 'Restore Power')}
                 />
               ))
             ) : (

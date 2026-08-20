@@ -91,10 +91,16 @@ export default function CommandCenter({ user, initialImei }) {
       const accMatch = ev.raw.match(/ACC:\s*(ON|OFF|HIGH|LOW)/i);
       if (accMatch && !ev.acc) ev.acc = accMatch[1].toUpperCase();
 
+      const pwrSourceMatch = ev.raw.match(/PowerSource:\s*([a-zA-Z0-9_]+)/i);
+      if (pwrSourceMatch && !ev.power_source) ev.power_source = pwrSourceMatch[1].toUpperCase();
+
       const voltMatch = ev.raw.match(/Voltage:\s*([\d\.\/]+)/i);
       if (voltMatch && !ev.voltage) ev.voltage = voltMatch[1];
-      
-      const voltLevelMatch = ev.raw.match(/Voltage:\s*(\d+)\/6/i);
+
+      const extVoltMatch = ev.raw.match(/External Voltage:\s*([\d\.]+(?:\s*V)?)/i);
+      if (extVoltMatch && !ev.ext_voltage) ev.ext_voltage = extVoltMatch[1];
+
+      const voltLevelMatch = ev.raw.match(/Voltage\/Level:\s*(\d+)\/6/i) || ev.raw.match(/Voltage:\s*(\d+)\/6/i);
       if (voltLevelMatch && ev.battery_level == null) ev.battery_level = parseInt(voltLevelMatch[1], 10);
 
       const alarmMatch = ev.raw.match(/Alarm(?: Type)?:\s*([a-zA-Z0-9_ \-]+)/i);
@@ -102,23 +108,23 @@ export default function CommandCenter({ user, initialImei }) {
 
       const latMatch = ev.raw.match(/Lat:\s*([-\d\.]+)/i);
       if (latMatch && ev.latitude == null) ev.latitude = parseFloat(latMatch[1]);
-      
+
       const lngMatch = ev.raw.match(/Lng:\s*([-\d\.]+)/i);
       if (lngMatch && ev.longitude == null) ev.longitude = parseFloat(lngMatch[1]);
 
       const speedMatch = ev.raw.match(/Speed:\s*([\d\.]+)/i);
       if (speedMatch && ev.speed == null) ev.speed = parseFloat(speedMatch[1]);
-      
+
       const hwAlarmMatch = ev.raw.match(/HWAlarm:\s*([a-zA-Z0-9_]+)/i);
       if (hwAlarmMatch && !ev.hw_alarm) ev.hw_alarm = hwAlarmMatch[1];
-      
+
       const extPowerMatch = ev.raw.match(/External Power:\s*([a-zA-Z0-9_]+)/i);
       if (extPowerMatch && !ev.external_power) ev.external_power = extPowerMatch[1].toUpperCase();
 
       const gpsMatch = ev.raw.match(/GPS:\s*([a-zA-Z0-9_]+)/i);
       if (gpsMatch && !ev.gps_tracking) ev.gps_tracking = gpsMatch[1].toUpperCase();
 
-      const oilMatch = ev.raw.match(/Oil:\s*([a-zA-Z0-9_]+)/i);
+      const oilMatch = ev.raw.match(/Oil\/Relay:\s*([a-zA-Z0-9_]+)/i) || ev.raw.match(/Oil:\s*([a-zA-Z0-9_]+)/i);
       if (oilMatch && !ev.oil_elec) ev.oil_elec = oilMatch[1].toUpperCase();
 
       const actMatch = ev.raw.match(/Activated:\s*([a-zA-Z0-9_]+)/i);
@@ -173,13 +179,15 @@ export default function CommandCenter({ user, initialImei }) {
   const updateTelemetry = (event) => {
     setTelemetry(prev => {
       let next = { ...prev };
-      
+
       if (event.latitude != null) next.latitude = event.latitude;
       if (event.longitude != null) next.longitude = event.longitude;
       if (event.speed != null) next.speed = event.speed;
-      
+
       if (event.acc) next.acc = event.acc;
       if (event.external_power && event.external_power !== 'Unknown') next.external_power = event.external_power;
+      if (event.power_source && event.power_source !== 'Unknown') next.power_source = event.power_source;
+      if (event.ext_voltage) next.ext_voltage = event.ext_voltage;
       if (event.battery_level != null) next.battery_level = event.battery_level;
       if (event.battery_status) next.battery_status = event.battery_status;
       if (event.voltage) next.voltage = event.voltage;
@@ -237,15 +245,15 @@ export default function CommandCenter({ user, initialImei }) {
     if (action.startsWith('cut-')) {
       const target = action === 'cut-engine' ? 'fuel/engine' : action.replace('cut-', '');
       const result = await Swal.fire({
-      title: 'Are you sure?',
-      text: `Are you sure you want to CUT the vehicle ${target}?`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#d33',
-      cancelButtonColor: '#3085d6',
-      confirmButtonText: 'Yes, proceed!'
-    });
-    if (!result.isConfirmed) return;
+        title: 'Are you sure?',
+        text: `Are you sure you want to CUT the vehicle ${target}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonColor: '#3085d6',
+        confirmButtonText: 'Yes, proceed!'
+      });
+      if (!result.isConfirmed) return;
     }
     try {
       const response = await fetch(`${BASE_URL}/api/command-center/control/${action}`, {
@@ -352,9 +360,9 @@ export default function CommandCenter({ user, initialImei }) {
         .cc-freshness-track { height: 4px; background: var(--raised); overflow: hidden; }
         .cc-freshness-track span { display: block; width: 0; height: 100%; background: var(--amber); transition: width .45s cubic-bezier(.22,1,.36,1); }
         
-        .cc-telemetry { display: grid; grid-template-columns: repeat(10, 1fr); border: 1px solid var(--line); background: var(--surface); }
+        .cc-telemetry { display: grid; grid-template-columns: repeat(12, 1fr); border: 1px solid var(--line); background: var(--surface); }
         .cc-metric { min-height: 150px; padding: var(--space-xl); border-bottom: 1px solid var(--line); border-inline-end: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between; }
-        .cc-metric.location { grid-column: span 10; }
+        .cc-metric.location { grid-column: span 12; }
         .cc-metric.small { grid-column: span 2; }
         .cc-metric:nth-last-child(-n+4) { border-bottom: 0; }
         .cc-label { color: var(--muted); font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; }
@@ -403,8 +411,8 @@ export default function CommandCenter({ user, initialImei }) {
         
         @media (max-width: 900px) {
           .cc-context, .cc-workbench { grid-template-columns: 1fr; }
-          .cc-metric.location { grid-column: span 10; }
-          .cc-metric.small { grid-column: span 5; }
+          .cc-metric.location { grid-column: span 12; }
+          .cc-metric.small { grid-column: span 6; }
           .cc-metric:nth-last-child(-n+4) { border-bottom: 1px solid var(--line); }
           .cc-metric:nth-last-child(-n+2) { border-bottom: 0; }
           .cc-tools { display: grid; grid-template-columns: repeat(2, 1fr); }
@@ -413,7 +421,7 @@ export default function CommandCenter({ user, initialImei }) {
           .cc-shell { padding: var(--space-lg); }
           .cc-header { align-items: flex-start; padding: var(--space-lg) 0; flex-direction: column; }
           .cc-context { padding-top: var(--space-2xl); }
-          .cc-metric.small { grid-column: span 10; min-height: 120px; border-inline-end: 0; }
+          .cc-metric.small { grid-column: span 12; min-height: 120px; border-inline-end: 0; }
           .cc-metric.location { border-inline-end: 0; }
           .cc-tools { grid-template-columns: 1fr; }
           .cc-line { grid-template-columns: 62px minmax(0,1fr); }
@@ -497,9 +505,9 @@ export default function CommandCenter({ user, initialImei }) {
           <article className="cc-metric small">
             <span className="cc-label">Power source</span>
             <div className={`cc-value text-val ${onExternalPower ? 'cc-green' : 'cc-amber'}`}>
-              {onExternalPower ? 'Car Battery' : (telemetry.external_power ? 'Internal Battery' : '—')}
+              {onExternalPower ? 'Vehicle Pwr' : (telemetry.power_source ? 'Int Battery' : '—')}
             </div>
-            <span className="cc-sub">{onExternalPower ? 'Running on external vehicle power' : 'Running on backup internal battery'}</span>
+            <span className="cc-sub">{telemetry.power_source || 'Unknown'}</span>
           </article>
 
           <article className="cc-metric small">
@@ -559,6 +567,22 @@ export default function CommandCenter({ user, initialImei }) {
               <span className="cc-unit">/4</span>
             </div>
             <span className="cc-sub">{signalQuality}</span>
+          </article>
+
+          <article className="cc-metric small">
+            <span className="cc-label">Ext Voltage</span>
+            <div className={`cc-value ${telemetry.ext_voltage ? 'cc-green' : 'cc-amber'}`}>
+              {telemetry.ext_voltage || '—'}
+            </div>
+            <span className="cc-sub">External Battery</span>
+          </article>
+
+          <article className="cc-metric small">
+            <span className="cc-label">Network</span>
+            <div className={`cc-value text-val ${telemetry.remote_ip ? 'cc-green' : 'cc-amber'}`}>
+              {telemetry.remote_ip ? 'TCP Conn' : '—'}
+            </div>
+            <span className="cc-sub">{telemetry.remote_ip ? `${telemetry.remote_ip}:${telemetry.remote_port}` : 'Waiting'}</span>
           </article>
         </section>
 
@@ -629,42 +653,43 @@ export default function CommandCenter({ user, initialImei }) {
                   </div>
                   <dl className="cc-packet-fields">
                     {!displayEvent ? (
-                <div className="cc-packet-field">
-                  <dt>Tip</dt>
-                  <dd>Click any row above to inspect its parsed L57 values.</dd>
-                </div>
-              ) : (
-                [
-                  ['IMEI', displayEvent.imei],
-                  ['Category', packetNames[(displayEvent.kind || '').toLowerCase()] || displayEvent.kind],
-                  ['Remote IP', displayEvent.remote_ip],
-                  ['Remote port', displayEvent.remote_port],
-                  ['Latitude', displayEvent.latitude],
-                  ['Longitude', displayEvent.longitude],
-                  ['Speed', displayEvent.speed != null ? `${displayEvent.speed} km/h` : null],
-                  ['Ignition pin', displayEvent.acc ? `${displayEvent.acc === 'ON' ? 'HIGH' : 'LOW'} · ACC ${displayEvent.acc}` : null],
-                  ['External power', displayEvent.external_power],
-                  ['Power source', displayEvent.power_source],
-                  ['Battery', displayEvent.battery_level != null ? `${displayEvent.battery_level}/6 · ${displayEvent.battery_status}` : displayEvent.voltage],
-                  ['Alarm', displayEvent.alarm],
-                  ['HW Alarm', displayEvent.hw_alarm],
-                  ['GPS Tracking', displayEvent.gps_tracking],
-                  ['Oil/Electricity', displayEvent.oil_elec],
-                  ['Activated', displayEvent.activated],
-                  ['GSM Signal', displayEvent.gsm_signal]
-                ].filter(x => x[1] != null && x[1] !== 'Unknown' && x[1] !== '').map(([k, v]) => (
-                  <div className="cc-packet-field" key={k}>
-                    <dt>{k}</dt>
-                    <dd>{v}</dd>
+                      <div className="cc-packet-field">
+                        <dt>Tip</dt>
+                        <dd>Click any row above to inspect its parsed L57 values.</dd>
+                      </div>
+                    ) : (
+                      [
+                        ['IMEI', displayEvent.imei],
+                        ['Category', packetNames[(displayEvent.kind || '').toLowerCase()] || displayEvent.kind],
+                        ['Remote IP', displayEvent.remote_ip],
+                        ['Remote port', displayEvent.remote_port],
+                        ['Latitude', displayEvent.latitude],
+                        ['Longitude', displayEvent.longitude],
+                        ['Speed', displayEvent.speed != null ? `${displayEvent.speed} km/h` : null],
+                        ['Ignition pin', displayEvent.acc ? `${displayEvent.acc === 'ON' ? 'HIGH' : 'LOW'} · ACC ${displayEvent.acc}` : null],
+                        ['External power', displayEvent.external_power],
+                        ['Power source', displayEvent.power_source],
+                        ['Battery', displayEvent.battery_level != null ? `${displayEvent.battery_level}/6 · ${displayEvent.battery_status}` : displayEvent.voltage],
+                        ['External Voltage', displayEvent.ext_voltage],
+                        ['Alarm', displayEvent.alarm],
+                        ['HW Alarm', displayEvent.hw_alarm],
+                        ['GPS Tracking', displayEvent.gps_tracking],
+                        ['Oil/Electricity', displayEvent.oil_elec],
+                        ['Activated', displayEvent.activated],
+                        ['GSM Signal', displayEvent.gsm_signal]
+                      ].filter(x => x[1] != null && x[1] !== 'Unknown' && x[1] !== '').map(([k, v]) => (
+                        <div className="cc-packet-field" key={k}>
+                          <dt>{k}</dt>
+                          <dd>{v}</dd>
+                        </div>
+                      ))
+                    )}
+                  </dl>
+                  <div className="cc-packet-raw">
+                    {displayEvent ? displayEvent.raw : 'Raw packet information will appear here.'}
                   </div>
-                ))
-              )}
-            </dl>
-            <div className="cc-packet-raw">
-              {displayEvent ? displayEvent.raw : 'Raw packet information will appear here.'}
-            </div>
-            </>
-            );
+                </>
+              );
             })()}
           </section>
         </section>
